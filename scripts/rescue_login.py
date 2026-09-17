@@ -365,6 +365,8 @@ def _handle_unfamiliar_location(
         "Referer": page_url,
         "canary": info["api_canary"],
         "client-request-id": uaid,
+        "correlationId": uaid,
+        "x-ms-correlation-id": uaid,
         "hpgid": info["hpgid"],
         "hpgact": "0",
     }
@@ -392,11 +394,24 @@ def _handle_unfamiliar_location(
         "UnfamiliarLocationHard SendOtt epid=%.24s… purpose=%s proof=%s",
         info["epid"], info["purpose"], info["proof_name"],
     )
+    logger.info("SendOtt canary=%.40s… hpgid=%s uaid=%s", info["api_canary"], info["hpgid"], uaid[:12])
+    _cookies = sorted(http.session.cookies.get_dict().keys())
+    logger.info("SendOtt 前 cookies(%d)=%s", len(_cookies), ",".join(_cookies[:24]))
     sent = http.post(info["send_ott_url"], json=send_body, headers=hdrs, allow_redirects=False)
     _dump("rescue_send_ott.json", sent.text or "")
     logger.info("SendOtt status=%s body=%s", sent.status_code, (sent.text or "")[:180])
     if sent.status_code >= 400:
         raise RuntimeError(f"SendOtt HTTP {sent.status_code}: {(sent.text or '')[:180]}")
+    # 服务器返回 {"error":{"code":...}} 时立即失败，不要白等 150s CF 读码
+    try:
+        _sj = sent.json() if sent.text else {}
+        if isinstance(_sj, dict) and _sj.get("error"):
+            raise RuntimeError(f"SendOtt 服务端错误: {_sj['error']}")
+    except (ValueError, RuntimeError) as _e:
+        if isinstance(_e, RuntimeError):
+            raise
+    except Exception:  # noqa: BLE001
+        pass
 
     # 3) 读 CF 验证码（只读快照之后的新邮件，since_ts=现在）
     if client is None:

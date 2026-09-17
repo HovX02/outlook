@@ -703,7 +703,14 @@ def follow_auto_post_forms(
                 logger.debug("遇到 proofs 人工输入表单但无续跳 slt，交由 proofs 分支/返回")
                 return resp
             form_open = body[form_m.start():body.find(">", form_m.start()) + 1]
-            action = urllib.parse.urljoin(cur_url, _attr(form_open, "action") or cur_url)
+            raw_action = _attr(form_open, "action")
+            # 纯 JS 驱动的隐藏容器（HIP/PX 验证码、onsubmit="return false"、action="#"）
+            # 不可盲目 POST，否则空字段重提会把会话打坏（如 identity/confirm → errcode 1078）。
+            # 这类页交由上层（rescue 的 UnfamiliarLocationHard 等）识别处理。
+            if not raw_action or raw_action.strip() in ("#", "javascript:void(0)", "javascript:;"):
+                logger.debug("跳过 JS 驱动表单 action=%r，交由上层处理 url=%s", raw_action, cur_url[:100])
+                return resp
+            action = urllib.parse.urljoin(cur_url, raw_action or cur_url)
             if "credentialaction" in action.lower() and _is_credentialaction_interrupt(body, cur_url):
                 ca_resp = try_handle_credentialaction(http, resp, ctx)
                 if ca_resp is not None:
