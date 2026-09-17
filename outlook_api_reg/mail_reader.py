@@ -96,11 +96,23 @@ def _body_text(msg) -> str:
 
 
 def _extract_code(subject: str, body: str) -> str:
-    # 优先主题里的独立数字（微软安全码主题常含验证码）
-    for text in (subject, body):
-        m = re.search(r"(?<!\d)(\d{4,8})(?!\d)", text or "")
-        if m:
-            return m.group(1)
+    # Prefer a number immediately following Microsoft's explicit code label;
+    # alert mails also contain years (for example ``2026``) that must not be
+    # mistaken for the OTP.
+    labelled = re.search(
+        r"(?:security\s+code|verification\s+code|single[- ]use\s+code|安全代码|安全码|验证码|一次性代码)"
+        r"(?:为|is)?\s*[:：]?\s*(\d{6,8})",
+        f"{subject or ''}\n{body or ''}",
+        re.I,
+    )
+    if labelled:
+        return labelled.group(1)
+    # Then use independent digit runs in the subject only (legacy messages
+    # sometimes omit the label and place the OTP there).  Do not scan the
+    # whole body: security-alert messages contain dates, IPs and URL ids.
+    m = re.search(r"(?<!\d)(\d{6,8})(?!\d)", subject or "")
+    if m:
+        return m.group(1)
     return ""
 
 

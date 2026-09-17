@@ -27,7 +27,66 @@ _CG_HID_TAP = 0
 _CG_BTN_LEFT = 0
 
 
+def xdotool_available() -> tuple[bool, str]:
+    import shutil
+
+    if shutil.which("xdotool"):
+        return True, "xdotool ok"
+    return False, "xdotool 未安装"
+
+
+def xdotool_press_hold(
+    screen_x: float,
+    screen_y: float,
+    hold_ms: int,
+    log: Optional[Callable] = None,
+) -> float:
+    """Linux/Xvfb：xdotool 发 OS 级鼠标事件（PX press 按住）。"""
+    import subprocess
+
+    def _log(msg: str) -> None:
+        if log:
+            log(msg)
+
+    ok, why = xdotool_available()
+    if not ok:
+        raise RuntimeError(why)
+
+    sx, sy = float(screen_x), float(screen_y)
+    hold_s = max(0.05, hold_ms / 1000.0)
+
+    def _xdo(*args: object) -> None:
+        subprocess.run(["xdotool", *[str(a) for a in args]], check=False)
+
+    startx = sx - random.randint(90, 170)
+    starty = sy - random.randint(60, 130)
+    ctrlx = (startx + sx) / 2 + random.randint(-40, 40)
+    ctrly = (starty + sy) / 2 + random.randint(-30, 30)
+    steps = random.randint(22, 34)
+    for i in range(steps + 1):
+        t = i / steps
+        x = (1 - t) ** 2 * startx + 2 * (1 - t) * t * ctrlx + t ** 2 * sx + random.uniform(-1.2, 1.2)
+        y = (1 - t) ** 2 * starty + 2 * (1 - t) * t * ctrly + t ** 2 * sy + random.uniform(-1.0, 1.0)
+        _xdo("mousemove", int(x), int(y))
+        time.sleep(random.uniform(0.006, 0.022))
+    _xdo("mousemove", "--sync", int(sx), int(sy))
+    time.sleep(random.uniform(0.15, 0.3))
+    t_down = time.time()
+    _xdo("mousedown", 1)
+    t0 = time.time()
+    while time.time() - t0 < hold_s:
+        _xdo("mousemove_relative", "--", random.randint(-2, 2), random.randint(-2, 2))
+        time.sleep(random.uniform(0.05, 0.16))
+    _xdo("mouseup", 1)
+    dur = (time.time() - t_down) * 1000.0
+    _log("xdotool pressDuration=%.1fms screen=(%.1f,%.1f)" % (dur, sx, sy))
+    return dur
+
+
 def os_press_available() -> tuple[bool, str]:
+    ok, why = xdotool_available()
+    if ok:
+        return ok, why
     try:
         from Quartz import CGEventCreateMouseEvent  # noqa: F401
         return True, "Quartz HID ok"

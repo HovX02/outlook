@@ -8,6 +8,10 @@ while [ $i -lt 20 ]; do
   sleep 0.3; i=$((i+1))
 done
 echo "[entrypoint] Xvfb :99 ready"
+if [ "${1:-}" = "webapp" ]; then
+  shift
+  exec uvicorn webapp.server:app --host 0.0.0.0 --port "${PORT:-8890}" "$@"
+fi
 SCRIPT="${1:-px_hold_test.py}"
 if [ "$#" -gt 0 ]; then shift; fi
 exec python "$SCRIPT" "$@"

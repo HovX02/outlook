@@ -23,7 +23,14 @@ from .models import AccountInfo, RegisterResult, SignupSession
 from .post_register import complete_oauth_after_signup
 from .risk import RegisterRetryable, solve_risk_challenge
 
-from .proxy_utils import expand_proxy_template, expand_proxy_unique, has_sid_template, parse_proxy_pool, preflight_proxy
+from .proxy_utils import (
+    expand_proxy_template,
+    expand_proxy_unique,
+    has_sid_template,
+    parse_proxy_pool,
+    preflight_proxy,
+    probe_exit_stability,
+)
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -303,6 +310,21 @@ def register_one(
             last_err = info
             continue
         logger.info("代理预检通过（%s/%s）: %s [%s]", idx, len(attempt_proxies), p or "(直连)", info)
+        # 出口稳定性：轮换代理会让注册流程的几十条连接落在不同国家，
+        # PX 在 A 国签发 _px3、verify 从 B 国提交 → 必然 AADSTS7005106 riskBlock。
+        if p and os.environ.get("OUTLOOK_ALLOW_ROTATING_PROXY", "").strip() != "1":
+            sticky, sticky_info, _ = probe_exit_stability(p)
+            if not sticky:
+                logger.error(
+                    "代理出口不稳定，跳过（%s/%s）: %s\n"
+                    "  注册需要 sticky（会话保持）代理。请向代理商索取 sticky 会话参数"
+                    "（常见形式 user-sessid-xxx / sid_xxx_time_10 / 专用 sticky 端口），"
+                    "或设 OUTLOOK_ALLOW_ROTATING_PROXY=1 强行继续（几乎必失败）。",
+                    idx, len(attempt_proxies), sticky_info,
+                )
+                last_err = f"代理每请求换出口: {sticky_info}"
+                continue
+            logger.info("代理出口稳定性 OK: %s", sticky_info)
         if len(attempt_proxies) > 1:
             logger.info("注册尝试 %s/%s", idx, len(attempt_proxies))
         try:

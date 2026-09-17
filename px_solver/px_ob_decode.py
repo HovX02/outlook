@@ -69,6 +69,9 @@ def compute_indices(key_str: str, payload_len: int, uuid: str) -> list[int]:
     return sorted(positions)
 
 
+from typing import Any
+
+
 def decode_sensor(encoded: str, uuid: str, sts: str = "1604064986000") -> str:
     key = xor_str(b64e(sts), 10)
     key_len = len(key)
@@ -82,6 +85,41 @@ def decode_sensor(encoded: str, uuid: str, sts: str = "1604064986000") -> str:
     pad = (-len(clean)) % 4
     raw = base64.b64decode(clean + ("=" * pad))
     return bytes(x ^ 50 for x in raw).decode("utf-8", "replace")
+
+
+def extract_sts_from_sid(sid: str) -> str:
+    """sid 可能嵌入 sts（Unicode 变体选择符分隔）；否则用 PX 默认首包 sts。"""
+    if not sid:
+        return "1604064986000"
+    if sid.isdigit() and len(sid) >= 10:
+        return sid
+    digits = "".join(ch for ch in sid if ch.isdigit())
+    if len(digits) >= 13:
+        return digits[:13]
+    return "1604064986000"
+
+
+def decode_payload_form(params: dict[str, str]) -> dict[str, Any]:
+    """从 bundle form 字段解码 payload（需 uuid + sid 内嵌 sts）。"""
+    pl = params.get("payload") or ""
+    uid = params.get("uuid") or ""
+    if not pl or not uid:
+        return {"ok": False, "error": "missing payload or uuid"}
+    sts = extract_sts_from_sid(params.get("sid") or "")
+    try:
+        text = decode_sensor(pl, uid, sts)
+        preview = text[:400] if text else ""
+        return {"ok": True, "sts": sts, "preview": preview, "len": len(text)}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": str(exc), "sts": sts}
+
+
+def xor50_preview(b64_payload: str, max_len: int = 8000) -> str:
+    """payload 前段 XOR50 预览（不解 interleave）。"""
+    clean = "".join(c for c in b64_payload[:max_len] if c.isalnum() or c in "+/=")
+    pad = (-len(clean)) % 4
+    raw = base64.b64decode(clean + ("=" * pad))
+    return bytes(x ^ 50 for x in raw[:120]).decode("utf-8", "replace")
 
 
 def main() -> int:
@@ -130,10 +168,15 @@ def main() -> int:
         pl = params.get("payload") or ""
         if pl:
             try:
-                prev = xor50_b64(pl[:8000])[:160]
-                print("  xor50", prev[:120])
+                dec = decode_payload_form(params)
+                if dec.get("ok"):
+                    print("  payload_decode sts=%s len=%s" % (dec.get("sts"), dec.get("len")))
+                    print("  preview", (dec.get("preview") or "")[:120])
+                else:
+                    prev = xor50_preview(pl)
+                    print("  xor50_preview", prev[:120], "| decode_err:", dec.get("error"))
             except Exception as exc:
-                print("  xor50 skip", exc)
+                print("  payload skip", exc)
     print(f"\n_px3-like segs in ob: {found_px3}")
     return 0
 

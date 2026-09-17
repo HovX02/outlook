@@ -4,3 +4,4 @@ python-dotenv>=1.0.0
 # Web 控制台（webapp/server.py）
 fastapi>=0.115.0
 uvicorn>=0.30.0
+playwright>=1.49.0

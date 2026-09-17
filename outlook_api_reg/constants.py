@@ -171,6 +171,9 @@ CAPTCHA_RUN_API_BASE = "https://apicn.captcha.run"
 CAPTCHA_RUN_API_BASE_GLOBAL = "https://api.captcha-run.com"
 CAPTCHA_RUN_DEVELOPER_ID = "beada0b6-2ebc-4641-9010-35925d709e7f"
 
+# offcaptcha.com（PX invisible + press-and-hold）
+OFFCAPTCHA_API_BASE = "https://api.offcaptcha.com/v1"
+
 # API 路径
 RISK_INITIALIZE_PATH = f"/{MSA_TENANT_ID}/api/v1.0/risk/initialize"
 RISK_VERIFY_PATH = f"/{MSA_TENANT_ID}/api/v1.0/risk/verify"
@@ -196,6 +199,7 @@ COUNTRY_LOCALE: dict[str, tuple[str, str]] = {
     "GB": ("EN-GB", "2057"),
     "AU": ("EN-AU", "3081"),
     "SG": ("EN-SG", "18441"),
+    "PH": ("EN-PH", "34313"),
     "DE": ("DE-DE", "1031"),
     "FR": ("FR-FR", "1036"),
     "JP": ("JA-JP", "1041"),
@@ -209,6 +213,12 @@ COUNTRY_LOCALE: dict[str, tuple[str, str]] = {
 def locale_for_country(country: str) -> tuple[str, str]:
     cc = (country or "US").strip().upper()
     return COUNTRY_LOCALE.get(cc, (DEFAULT_MKT, DEFAULT_LC))
+
+
+def signup_url_for_country(country: str) -> str:
+    """Microsoft signup URL with explicit ``mkt`` — avoids Uzbek/随机 IP locale。"""
+    mkt, _lc = locale_for_country(country)
+    return f"https://signup.live.com/signup?lic=1&mkt={mkt}"
 
 # exe 支持的邮箱后缀（默认仍用 @outlook.com）
 OUTLOOK_EMAIL_DOMAINS = [

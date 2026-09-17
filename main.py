@@ -24,9 +24,10 @@ def main() -> int:
     parser.add_argument("--proxy", help="HTTP 代理，支持 http://user:pass@host:port 或 host:port:user:pass")
     parser.add_argument(
         "--px-mode",
-        choices=["solver"],
+        choices=["solver", "local", "offcaptcha"],
         default="solver",
-        help="PX 解法：solver=纯协议打码（已移除浏览器方案，仅此一种）",
+        help="PX 解法：solver=captcha.run/EzCaptcha/CapSolver；"
+             "local=本地 SwiftShader；offcaptcha=offcaptcha.com PX invisible+press",
     )
     parser.add_argument("--skip-login", action="store_true", help="仅注册，不完成后续 OAuth 登录（则无 refresh_token）")
     parser.add_argument(
@@ -50,6 +51,17 @@ def main() -> int:
 
     if args.domain not in OUTLOOK_EMAIL_DOMAINS:
         print(f"警告: 后缀 {args.domain} 不在推荐列表，仍尝试注册")
+
+    # local = 本地浏览器收割 PX token，完全不走第三方打码平台。
+    # risk.py._solve_px_protocol 读 PX_SOLVER 决定后端，这里显式置位。
+    if args.px_mode == "local":
+        import os
+
+        os.environ["PX_SOLVER"] = "swiftshader"
+    elif args.px_mode == "offcaptcha":
+        import os
+
+        os.environ["PX_SOLVER"] = "offcaptcha"
 
     print("=== Outlook Fluent API 注册 ===")
     print(f"PX 模式: {args.px_mode}")

@@ -954,8 +954,11 @@ def try_handle_credentialaction(
     r_pk = http.post(passkey_url, data=passkey_data, allow_redirects=True)
     skipped = try_skip_passkey(http, r_pk.text or "", ctx, url=r_pk.url or passkey_url)
     r_pk = skipped or r_pk
-    if not _is_credentialaction_interrupt(r_pk.text or "", r_pk.url or ""):
+    pk_bad = "errcode=1086" in (r_pk.url or "") or "error.aspx" in (r_pk.url or "")
+    if not _is_credentialaction_interrupt(r_pk.text or "", r_pk.url or "") and not pk_bad:
         return r_pk
+    if pk_bad:
+        logger.info("passkey 跳过落入 error.aspx(1086)，改走 proofs/Add 续跳")
 
     proofs_qs = {
         "mkt": mkt,

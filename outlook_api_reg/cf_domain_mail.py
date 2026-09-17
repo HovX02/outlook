@@ -219,18 +219,36 @@ def _strip_html(text: str) -> str:
     return t.strip()
 
 
+def _decode_json_escapes(text: str) -> str:
+    """Decode literal JSON unicode escapes returned by the Worker API.
+
+    Some deployments serialize the MIME body twice, leaving ``\\u4ee3`` in
+    the JSON field instead of the actual CJK character.  Decoding those
+    escapes before OTP extraction prevents the year/id digits in headers from
+    being selected ahead of the six-digit security code.
+    """
+    if "\\u" not in text and "\\U" not in text:
+        return text
+    try:
+        return re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), text)
+    except Exception:
+        return text
+
+
 def _mail_body(mail: dict) -> tuple[str, str]:
     """返回 (原文, 可见纯文本)。优先结构化字段，回退整封 MIME raw 解析。"""
     for key in ("bodyPreview", "snippet", "text", "text_content", "body", "content", "preview"):
         v = str(mail.get(key) or "").strip()
         if v:
+            v = _decode_json_escapes(v)
             return v, (_strip_html(v) if "<" in v else v)
     for key in ("html", "html_content", "body_html", "bodyHtml", "raw_html", "content_html"):
         v = str(mail.get(key) or "").strip()
         if v:
+            v = _decode_json_escapes(v)
             return v, _strip_html(v)
 
-    raw = str(mail.get("raw") or mail.get("mime") or mail.get("message") or mail.get("source") or "")
+    raw = _decode_json_escapes(str(mail.get("raw") or mail.get("mime") or mail.get("message") or mail.get("source") or ""))
     if not raw:
         return "", ""
     try:
@@ -251,10 +269,10 @@ def _mail_body(mail: dict) -> tuple[str, str]:
                 continue
             (plain if ctype == "text/plain" else html).append(content)
         if plain:
-            body = "\n".join(plain)
+            body = _decode_json_escapes("\n".join(plain))
             return body, (body if "<" not in body else _strip_html(body))
         if html:
-            body = "\n".join(html)
+            body = _decode_json_escapes("\n".join(html))
             return body, _strip_html(body)
     except Exception:  # noqa: BLE001
         pass
@@ -530,15 +548,16 @@ class CFDomainMailClient:
         while time.time() < deadline:
             for mail in self._candidate_mails(alias):
                 mid = _mail_id(mail)
-                if mid and mid in skip_ids:
-                    skipped_snapshot += 1
-                    continue
                 if mid and mid in consumed:
                     continue
                 rcv = _mail_received_ts(mail)
-                # since_ts 仅过滤「快照前」的旧信；新信 id 不在 before_ids 时不应被误杀
-                if since_ts and rcv and rcv < since_ts - 120 and mid and mid in skip_ids:
-                    continue
+                # A Worker may race the snapshot and include a just-arrived
+                # message in ``before_ids``.  Timestamp wins in that case:
+                # only skip ids whose receive time predates this challenge.
+                if mid and mid in skip_ids:
+                    if not since_ts or not rcv or rcv < since_ts - 120:
+                        skipped_snapshot += 1
+                        continue
                 if not _is_ms_security_mail(mail):
                     skipped_non_ms += 1
                     continue

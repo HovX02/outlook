@@ -1,0 +1,21 @@
+services:
+  outlook-register:
+    build: .
+    image: outlook-auto-register:local
+    container_name: outlook-auto-register
+    ports:
+      - "8890:8890"
+    env_file:
+      - .env
+    environment:
+      DISPLAY: ":99"
+      PX_SOLVER: swiftshader
+      PX_SWIFTSHADER_HEADFUL: "1"
+      PX_SWIFTSHADER_TARGET: parent
+      PX_PRESS_BACKEND: xdotool
+      OUTLOOK_DB_PATH: /app/data/outlook.db
+    volumes:
+      - ./data:/app/data
+      - ./accounts:/app/accounts
+    restart: unless-stopped
+    shm_size: "1gb"

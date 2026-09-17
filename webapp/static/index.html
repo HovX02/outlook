@@ -438,6 +438,9 @@
                   <span class="register-section-meta">数量、并发、产出格式</span>
                 </div>
                 <div class="register-params-grid">
+                  <label class="field span-2"><span>执行路线</span><select id="executionRoute"></select><small id="executionRouteHint" class="hint"></small></label>
+                  <label class="field" id="roxyProfileField" style="display:none;"><span>Roxy Profile ID</span><input type="text" id="roxyProfileId" placeholder="选择或填写 dirId" autocomplete="off" /></label>
+                  <label class="field" id="bitbrowserProfileField" style="display:none;"><span>比特浏览器 Profile ID</span><input type="text" id="bitbrowserProfileId" placeholder="选择或填写 profileId" autocomplete="off" /></label>
                   <label class="field"><span>注册数量</span><input type="number" id="count" value="1" min="1" max="20" /></label>
                   <label class="field"><span>并发度</span><input type="number" id="concurrency" value="1" min="1" max="20" /></label>
                   <label class="field"><span>PX 模式</span><select id="pxMode"></select></label>
@@ -1019,6 +1022,15 @@ async function loadConfig(){
   try {
     const c = await (await api('/api/config')).json(); CFG=c;
     $('pxMode').innerHTML = c.px_modes.map(m=>`<option>${m}</option>`).join('');
+    const routes = c.execution_routes || [{id:'protocol',label:'纯协议（当前可用）',ready:true,description:'Fluent Web API + PX solver'}];
+    $('executionRoute').innerHTML = routes.map(r=>`<option value="${r.id}"${r.id==='protocol'?' selected':''}${r.ready?'':' disabled'}>${r.label}${r.ready?'':'（尚未接入）'}</option>`).join('');
+    const updateRouteHint = ()=>{
+      const r=routes.find(x=>x.id===$('executionRoute').value)||routes[0];
+      $('executionRouteHint').textContent = r.description || '';
+      $('roxyProfileField').style.display = r.id==='roxy' ? '' : 'none';
+      $('bitbrowserProfileField').style.display = r.id==='bitbrowser' ? '' : 'none';
+    };
+    $('executionRoute').onchange=updateRouteHint; updateRouteHint();
     const products = c.product_modes || [
       {id:'graph', label:'Graph 四段式', export:'graph', hint:''},
       {id:'graph_recovery', label:'Graph 六段式（推荐）', export:'recovery', hint:''}
@@ -1140,7 +1152,10 @@ async function startRegister(){
     prefix:$('prefix').value.trim()||null, domain:$('domain').value, country:$('country').value.trim()||'US',
     proxy, use_proxy_pool: usePool, px_mode:$('pxMode').value, skip_login:$('skipLogin').checked,
     no_mail_token:false, captcha_key:captchaKey,
-    token_mode:$('tokenMode').value, dry_run:false };
+    token_mode:$('tokenMode').value, dry_run:false,
+    execution_route:$('executionRoute').value,
+    roxy_profile_id:($('roxyProfileId')&&$('roxyProfileId').value.trim())||null,
+    bitbrowser_profile_id:($('bitbrowserProfileId')&&$('bitbrowserProfileId').value.trim())||null };
   if(batchLabel) body.batch_label=batchLabel;
   $('startBtn').disabled=true; clearLogConsole(); seenLogKeys.clear(); renderSummary(null); for(const k in jobAccts) delete jobAccts[k]; renderProgress();
   if($('logLive')) $('logLive').style.display='inline';

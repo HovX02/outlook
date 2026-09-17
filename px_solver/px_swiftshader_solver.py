@@ -64,9 +64,23 @@ HOLD_MS_MAX = int(os.environ.get("PX_HOLD_MS_MAX", "2600"))
 # 默认 0（生产隐身）。=1 时去掉反自动化 flag 并暴露 navigator.webdriver=true。
 EXPOSE_AUTOMATION = os.environ.get("PX_EXPOSE_AUTOMATION", "0").strip() == "1"
 
-# 真实 Windows Chrome UA（与指纹一致；chromium 主版本 149）
-UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36")
+_UA_WIN = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+           "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36")
+_UA_MAC = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+           "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36")
+
+# UA 必须与 WebGL renderer 自洽，否则是送分的机器人信号：
+#   REAL_GPU=1 在 macOS 上 renderer 报 "ANGLE (Apple, ANGLE Metal Renderer: Apple Mx)"，
+#   此时若 UA 还自称 Windows，微软注册页首屏直接 "We ran into a problem"（实测 2026-09-01）。
+#   故 REAL_GPU + darwin 默认切 macOS UA；PX_UA 可显式覆盖。
+UA = os.environ.get("PX_UA", "").strip() or (
+    _UA_MAC if (REAL_GPU and sys.platform == "darwin") else _UA_WIN
+)
+
+# 浏览器 locale / 时区。默认沿用 en-US，但代理出口在别国时应随出口改，
+# 否则 IP 地理与 JS 时区不一致同样是风险信号。
+LOCALE = os.environ.get("PX_LOCALE", "en-US").strip() or "en-US"
+TIMEZONE = os.environ.get("PX_TIMEZONE", "America/New_York").strip() or "America/New_York"
 
 # macOS 实测生效的 SwiftShader 软件渲染启动参数
 SWIFTSHADER_ARGS = [
@@ -141,7 +155,7 @@ def _find_captcha(page):
 
 
 def _collect_px(ctx) -> dict:
-    out = {"px3": "", "pxvid": "", "pxde": ""}
+    out = {"px3": "", "pxvid": "", "pxde": "", "pxcts": ""}
     try:
         for c in ctx.cookies():
             n = c.get("name")
@@ -151,6 +165,8 @@ def _collect_px(ctx) -> dict:
                 out["pxvid"] = c.get("value", "")
             elif n == "_pxde":
                 out["pxde"] = c.get("value", "")
+            elif n == "pxcts":
+                out["pxcts"] = c.get("value", "")
     except Exception as e:  # noqa: BLE001
         logger.warning("读取 cookie 失败: %s", e)
     return out
@@ -583,6 +599,7 @@ def harvest(
     uuid: Optional[str] = None,
     app_id: Optional[str] = None,
     preseed_cookies: Optional[list] = None,
+    signup_page_url: Optional[str] = None,
 ) -> dict:
     """Path D 主入口：SwiftShader headless 浏览器真按收割 press `_px3`。
 
@@ -599,12 +616,13 @@ def harvest(
     """
     sync_playwright = _import_sync_playwright()
     proxy_dict = _parse_proxy(proxy) if proxy else None
-    res = {"px3": "", "pxvid": "", "pxde": "", "pressed": False}
+    res = {"px3": "", "pxvid": "", "pxde": "", "pxcts": "", "pressed": False}
     run_id = time.strftime("%H%M%S")
     targeted = bool(challenge_url)
 
     def log(msg, *a):
-        logger.info("[%s] " + (msg % a if a else msg), run_id)
+        text = (msg % a) if a else msg
+        logger.info("[%s] %s", run_id, text)
 
     logger.info("=" * 78)
     log("harvest 开始 engine=%s browser=%s headful=%s backend=%s want_press=%s mode=%s proxy=%s",
@@ -676,10 +694,47 @@ def harvest(
         ctx = browser.new_context(
             user_agent=ctx_ua,
             viewport={"width": 1280, "height": 900},
-            locale="en-US",
-            timezone_id="America/New_York",
+            locale=LOCALE,
+            timezone_id=TIMEZONE,
         )
+        log("context ua=%s locale=%s tz=%s", ctx_ua[:60], LOCALE, TIMEZONE)
         page = ctx.new_page()
+
+        # 定向 press：把 collector POST 里的 vid 钉死在 challenge vid，避免 iframe 内二次签发 vid
+        if targeted and vid:
+            _pin_vid = str(vid)
+
+            def _pin_collector_vid(route):
+                req = route.request
+                if req.method != "POST":
+                    route.continue_()
+                    return
+                u = req.url
+                if "/assets/js/bundle" not in u and "/api/v2/" not in u and "/b/c/" not in u:
+                    route.continue_()
+                    return
+                pd = req.post_data or ""
+                if "vid=" not in pd:
+                    route.continue_()
+                    return
+                try:
+                    from urllib.parse import parse_qs, urlencode
+                    fields = {k: (v[0] if v else "") for k, v in parse_qs(pd, keep_blank_values=True).items()}
+                    old = fields.get("vid", "")
+                    if old and old != _pin_vid:
+                        fields["vid"] = _pin_vid
+                        route.continue_(post_data=urlencode(fields))
+                        log("route 钉死 collector vid %s → %s", old[:24], _pin_vid[:24])
+                        return
+                except Exception as e:  # noqa: BLE001
+                    log("route vid 重写失败: %s", e)
+                route.continue_()
+
+            try:
+                page.route("**/*", _pin_collector_vid)
+                log("已启用 collector vid 路由钉死 challenge vid=%s", _pin_vid[:36])
+            except Exception as e:  # noqa: BLE001
+                log("page.route vid 钉死不可用: %s", e)
 
         # 网络监听：记录 collector POST / captchaNotRendered / 挑战资源
         def on_request(req):
@@ -797,8 +852,33 @@ def harvest(
                         hold = random.randint(HOLD_MS_MIN, HOLD_MS_MAX)
                         backend = PRESS_BACKEND
                         if not backend:
-                            backend = "os_hid" if (OS_PRESS and HEADFUL) else "cdp"
+                            try:
+                                from os_press import xdotool_available as _xd_ok
+                                if HEADFUL and _xd_ok()[0]:
+                                    backend = "xdotool"
+                                else:
+                                    backend = "os_hid" if (OS_PRESS and HEADFUL) else "cdp"
+                            except Exception:
+                                backend = "os_hid" if (OS_PRESS and HEADFUL) else "cdp"
                         used = False
+                        if backend == "xdotool":
+                            try:
+                                if _HERE not in sys.path:
+                                    sys.path.insert(0, _HERE)
+                                from os_press import xdotool_available, xdotool_press_hold, viewport_to_screen
+                                ok, why = xdotool_available()
+                                if ok:
+                                    sx, sy = viewport_to_screen(page, cx, cy)
+                                    log("开始 xdotool 真按 hold=%dms screen=(%.1f,%.1f)", hold, sx, sy)
+                                    xdotool_press_hold(sx, sy, hold, lambda m: log("%s", m))
+                                    used = True
+                                    res["press_backend"] = "xdotool"
+                                else:
+                                    log("xdotool 不可用（%s），回退 pw_locator", why)
+                                    backend = "pw_locator"
+                            except Exception as e:  # noqa: BLE001
+                                log("xdotool 真按异常，回退 pw_locator: %s", e)
+                                backend = "pw_locator"
                         if backend == "os_hid":
                             try:
                                 if _HERE not in sys.path:
@@ -913,9 +993,11 @@ def harvest(
             except Exception:
                 pass
 
-        # 定向模式策略：iframe=直连 challengeUrl（实测无法渲染 press，仅作对照）；
-        # drive=预置注册 _pxvid 后走 signup 驱动流（可渲染 press，令 press 绑定注册 vid，默认）。
-        strategy = (os.environ.get("PX_SWIFTSHADER_TARGET", "drive").strip().lower()
+        # 定向模式策略：
+        # parent=注册页注入 challenge iframe（推荐，与 HTTP 会话同 vid）
+        # drive=signup 驱动流（会另起表单会话，仅作回退）
+        # iframe=直连 challengeUrl（对照，通常无法渲染 press）
+        strategy = (os.environ.get("PX_SWIFTSHADER_TARGET", "parent").strip().lower()
                     if targeted else "signup")
 
         if targeted and strategy == "iframe":
@@ -942,6 +1024,131 @@ def harvest(
             saw_visible = _press_poll(pre_px3)
             if want_press and not saw_visible:
                 log("⚠️ [iframe策略] 直连 challengeUrl 未渲染 press（iframe 需父页上下文）")
+        elif targeted and strategy == "parent":
+            parent_url = (
+                signup_page_url
+                or os.environ.get("PX_SIGNUP_PAGE_URL", "").strip()
+                or SIGNUP_URL
+            )
+            ch_url = challenge_url or ""
+            extras: list[str] = []
+            if vid and "v=" not in ch_url and "vid=" not in ch_url:
+                extras.append(f"v={vid}")
+            if uuid and "u=" not in ch_url and "uuid=" not in ch_url:
+                extras.append(f"u={uuid}")
+            if ch_url and "ch_ctx=" not in ch_url:
+                extras.append("ch_ctx=1")
+            if extras:
+                ch_url += ("&" if "?" in ch_url else "?") + "&".join(extras)
+            log("[parent策略] 注册页=%s", parent_url[:100])
+            log("[parent策略] challenge=%s", ch_url[:120] if ch_url else "?")
+            try:
+                page.goto(parent_url, wait_until="domcontentloaded", timeout=45000)
+                log("已打开注册页（HTTP 同 URL）")
+            except Exception as e:  # noqa: BLE001
+                log("goto 注册页异常: %s", e)
+            page.wait_for_timeout(2000)
+            aid = app_id or "PXzC5j78di"
+            if uuid and vid:
+                captcha_js = (
+                    f"https://captcha.hsprotect.net/{aid}/captcha.js"
+                    f"?a=c&m=0&u={uuid}&v={vid}"
+                )
+                try:
+                    page.add_script_tag(url=captcha_js)
+                    log("已加载 captcha.js（绑定 challenge vid/uuid）")
+                except Exception as e:  # noqa: BLE001
+                    log("add_script_tag captcha.js 失败: %s", e)
+                page.wait_for_timeout(1500)
+            if vid or uuid:
+                try:
+                    sc_result = page.evaluate(
+                        """(data) => {
+                          const payload = {
+                            vid: data.vid || '',
+                            uuid: data.uuid || '',
+                            appId: data.appId || 'PXzC5j78di',
+                            sessionId: data.sessionId || '',
+                          };
+                          const mount = document.getElementById('px-captcha-mount');
+                          if (!mount) {
+                            const d = document.createElement('div');
+                            d.id = 'px-captcha-mount';
+                            d.style.cssText = 'width:480px;margin:48px auto';
+                            (document.body || document.documentElement).appendChild(d);
+                          }
+                          const trySet = (w) => {
+                            if (!w) return false;
+                            const g = w.PXPXzC5j78di || w['PXPXzC5j78di'];
+                            if (g && typeof g.setChallenge === 'function') {
+                              g.setChallenge(payload);
+                              return true;
+                            }
+                            return false;
+                          };
+                          if (trySet(window)) return 'parent';
+                          return 'skip';
+                        }""",
+                        {
+                            "vid": vid or "",
+                            "uuid": uuid or "",
+                            "appId": aid,
+                            "sessionId": session_id or "",
+                        },
+                    )
+                    log("setChallenge 结果=%s", sc_result)
+                except Exception as e:  # noqa: BLE001
+                    log("setChallenge 异常: %s", e)
+            if ch_url:
+                try:
+                    page.evaluate(
+                        """(url) => {
+                          let f = document.getElementById('px-challenge-frame');
+                          if (!f) {
+                            f = document.createElement('iframe');
+                            f.id = 'px-challenge-frame';
+                            f.title = 'Human verification';
+                            f.style.cssText =
+                              'width:480px;height:140px;border:none;display:block;margin:24px auto';
+                            (document.body || document.documentElement).appendChild(f);
+                          }
+                          f.src = url;
+                        }""",
+                        ch_url,
+                    )
+                    log("已注入 challenge iframe（含 vid/uuid 参数）")
+                except Exception as e:  # noqa: BLE001
+                    log("注入 iframe 失败: %s", e)
+            page.wait_for_timeout(4000)
+
+            pre = _collect_px(ctx)
+            pre_px3 = pre.get("px3", "")
+            res["px3_silent"] = pre_px3
+            res.update({k: v for k, v in pre.items() if v})
+            if pre.get("pxvid"):
+                log("parent 后 _pxvid=%s 注册vid=%s 匹配=%s",
+                    pre.get("pxvid"), vid or "?", pre.get("pxvid") == vid)
+
+            saw_visible = _press_poll(pre_px3)
+            if want_press and not saw_visible:
+                log("⚠️ [parent策略] 未渲染可见 press，尝试回退 drive 策略")
+                try:
+                    page.goto(SIGNUP_URL, wait_until="domcontentloaded", timeout=45000)
+                    page.wait_for_timeout(2000)
+
+                    def _check_stop_parent():
+                        try:
+                            return bool(_visible_captcha_box(page))
+                        except Exception:
+                            return False
+
+                    _drive_signup(page, log, _check_stop_parent)
+                    pre2 = _collect_px(ctx)
+                    pre_px3 = pre2.get("px3", "") or pre_px3
+                    res.update({k: v for k, v in pre2.items() if v})
+                    saw_visible = _press_poll(pre_px3)
+                except Exception as e:  # noqa: BLE001
+                    log("parent→drive 回退失败: %s", e)
         else:
             # ── signup 驱动流（standalone 或 targeted+drive）：真按可渲染 ──
             if targeted:
@@ -1002,6 +1209,11 @@ def harvest(
             res["reg_vid"] = vid or ""
             res["target_session_id"] = session_id or ""
             res["vid_match_reg"] = bool(vid) and harvested_vid == vid
+        lpv = (res.get("last_press_vid") or "").strip()
+        if targeted and vid and lpv:
+            res["press_vid_match_reg"] = lpv == vid
+        else:
+            res["press_vid_match_reg"] = res.get("vid_match_reg", False)
         res["vid_match"] = bool(anchor) and harvested_vid == anchor
         posts = res.get("press_posts") or []
         if posts:
@@ -1023,10 +1235,10 @@ def harvest(
         except Exception:
             pass
 
-    log("harvest 结束 pressed=%s px3?=%s has_1000=%s vid_match=%s",
+    log("harvest 结束 pressed=%s px3?=%s has_1000=%s vid_match=%s press_vid_match=%s",
         res["pressed"], bool(res["px3"]),
         (":1000:" in res["px3"]) if res["px3"] else False,
-        res.get("vid_match", "N/A"))
+        res.get("vid_match", "N/A"), res.get("press_vid_match_reg", "N/A"))
     return res
 
 

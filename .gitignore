@@ -98,3 +98,14 @@ px_solver/live_*.js
 *.swp
 *.swo
 *~
+.ace-tool/
+
+# 代理清单含明文账密，禁止入库（proxies_ipwo.txt 等此前仅靠"未 add"侥幸未泄露）
+proxies*.txt
+!proxies*.example.txt
+
+# local tool caches / backups
+.kiro/
+*.bak*
+*.log
+

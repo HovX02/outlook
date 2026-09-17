@@ -117,6 +117,26 @@ PRODUCT_MODES = [
         "hint": "",
     },
 ]
+EXECUTION_ROUTES = [
+    {
+        "id": "protocol",
+        "label": "纯协议（当前可用）",
+        "ready": True,
+        "description": "Fluent Web API + PX solver，不依赖浏览器窗口。",
+    },
+    {
+        "id": "roxy",
+        "label": "Roxy 指纹浏览器",
+        "ready": False,
+        "description": "共享注册参数/代理/收码/token 管线；浏览器注册 adapter 尚未接入。",
+    },
+    {
+        "id": "bitbrowser",
+        "label": "比特浏览器",
+        "ready": False,
+        "description": "共享注册参数/代理/收码/token 管线；BitBrowser adapter 尚未接入。",
+    },
+]
 EXPORT_FORMATS = ["graph", "recovery", "dual"]
 # 引擎批量注册生成器（特性探测；import 失败则线程池兜底）
 try:
@@ -987,6 +1007,10 @@ class RegisterRequest(BaseModel):
     jitter_max: Optional[float] = None
     batch_label: Optional[str] = None  # 留空则按 日期-国家-域名-数量-格式 自动生成
     use_proxy_pool: bool = False
+    # 执行路线：公共参数由此请求承载，具体执行器在 worker 内分派。
+    execution_route: str = "protocol"
+    roxy_profile_id: Optional[str] = None
+    bitbrowser_profile_id: Optional[str] = None
 
 
 class ProxyPoolAddRequest(BaseModel):
@@ -1171,6 +1195,7 @@ def get_config() -> JSONResponse:
             "proxy_pool": proxy_pool.pool_stats(),
             "proxy_pool_file": str(proxy_pool.pool_file()),
             "proxy_pool_backend": proxy_pool.storage_backend(),
+            "execution_routes": EXECUTION_ROUTES,
             "database": app_db.db_status(),
         }
     )
@@ -1230,6 +1255,16 @@ def save_settings(req: SettingsRequest) -> JSONResponse:
 def start_register(req: RegisterRequest) -> JSONResponse:
     if req.count < 1:
         raise HTTPException(status_code=400, detail="数量至少为 1。")
+    route = str(req.execution_route or "protocol").strip().lower()
+    route_info = next((r for r in EXECUTION_ROUTES if r["id"] == route), None)
+    if route_info is None:
+        raise HTTPException(status_code=400, detail=f"未知执行路线: {route}")
+    if not route_info["ready"] and not req.dry_run:
+        raise HTTPException(
+            status_code=501,
+            detail=f"{route_info['label']} 已加入路线选择，但对应注册 adapter 尚未接入；为避免误走纯协议，本次未启动。",
+        )
+    req.execution_route = route
     if not req.dry_run and req.count > 20:
         raise HTTPException(status_code=400, detail="真实注册单次上限 20，请分批。")
     if not req.dry_run:

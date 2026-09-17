@@ -61,6 +61,10 @@ def preflight_proxy(proxy: Optional[str], *, timeout: int = 15) -> tuple[bool, s
     返回 (ok, 说明)。ok=False 时说明含失败原因（如 403 auth fail），
     便于在注册/打码前直接判定代理是否可用，而非绕一圈报 captcha 失败。
     captcha.run PxCaptcha2 强制要求可用代理，代理不通则 silent/press 必然 Fail。
+
+    探测 URL 优先 ipinfo / myip（可解析出口 IP）。
+    不用 google generate_204 作首选：个别网络/代理下浏览器能访问 Google，
+    但该 204 探测仍会失败，导致预检误报。
     """
     import requests
 
@@ -69,21 +73,91 @@ def preflight_proxy(proxy: Optional[str], *, timeout: int = 15) -> tuple[bool, s
         return True, "(直连，无代理)"
     proxies = {"http": cfg.url, "https": cfg.url}
     last = ""
-    for url in ("https://www.google.com/generate_204", "https://api.myip.com/"):
+    # (url, mode)  mode: ip_text | ip_json | status_only
+    probes = (
+        ("https://ipinfo.io/ip", "ip_text"),
+        ("https://api.myip.com/", "ip_json"),
+        ("https://www.google.com/generate_204", "status_only"),
+    )
+    for url, mode in probes:
         try:
             r = requests.get(url, proxies=proxies, timeout=timeout)
-            if r.status_code < 400:
-                ip = ""
-                if "myip" in url:
-                    try:
-                        ip = r.json().get("ip", "")
-                    except Exception:
-                        ip = ""
-                return True, f"出口={ip or 'ok'} via {cfg.host}:{cfg.port}"
-            last = f"HTTP {r.status_code}: {r.text[:80]}"
+            if r.status_code >= 400:
+                last = f"HTTP {r.status_code}: {r.text[:80]}"
+                continue
+            ip = ""
+            if mode == "ip_text":
+                ip = (r.text or "").strip().splitlines()[0][:64]
+            elif mode == "ip_json":
+                try:
+                    ip = str(r.json().get("ip", "") or "")
+                except Exception:
+                    ip = ""
+            return True, f"出口={ip or 'ok'} via {cfg.host}:{cfg.port}"
         except Exception as exc:  # noqa: BLE001
             last = repr(exc)[:160]
     return False, f"代理不可用 {cfg.host}:{cfg.port} user={cfg.username} → {last}"
+
+
+def _probe_exit_once(proxy_url: str, *, timeout: int) -> tuple[str, str]:
+    """单次探测出口 IP + 国家。每次用全新 Session + Connection: close 强制新建连接，
+    否则 keep-alive 会复用同一条隧道，看不出轮换代理的真实行为。"""
+    import requests
+
+    proxies = {"http": proxy_url, "https": proxy_url}
+    with requests.Session() as s:
+        s.trust_env = False
+        r = s.get(
+            "https://ipinfo.io/json",
+            proxies=proxies,
+            timeout=timeout,
+            headers={"Connection": "close"},
+        )
+        r.raise_for_status()
+        data = r.json()
+    return str(data.get("ip", "") or ""), str(data.get("country", "") or "")
+
+
+def probe_exit_stability(
+    proxy: Optional[str],
+    *,
+    samples: int = 3,
+    timeout: int = 15,
+) -> tuple[bool, str, list[tuple[str, str]]]:
+    """判定代理是不是「每请求轮换」——注册流程的致命伤。
+
+    注册一个号要对 login.live.com / login.microsoftonline.com /
+    collector-*.hsprotect.net 等多个域名开几十条 TCP 连接。若代理按连接轮换出口，
+    PX 会在 A 国签发 ``_px3``、verify 却从 B 国提交，微软必然回
+    ``AADSTS7005106 riskBlock``。这种代理必须配 sticky 会话参数才能用。
+
+    返回 ``(sticky, 说明, [(ip, country), ...])``。
+    sticky=False 表示多次探测拿到不同出口 IP。
+    """
+    cfg = parse_proxy(proxy)
+    if not cfg:
+        return True, "(直连，无代理)", []
+
+    seen: list[tuple[str, str]] = []
+    errors: list[str] = []
+    for _ in range(max(2, samples)):
+        try:
+            seen.append(_probe_exit_once(cfg.url, timeout=timeout))
+        except Exception as exc:  # noqa: BLE001
+            errors.append(repr(exc)[:80])
+
+    if not seen:
+        return False, f"探测全部失败: {'; '.join(errors[:2])}", []
+
+    ips = {ip for ip, _ in seen if ip}
+    countries = {cc for _, cc in seen if cc}
+    trail = ", ".join(f"{ip}/{cc or '?'}" for ip, cc in seen)
+
+    if len(ips) <= 1:
+        return True, f"出口稳定 {trail}", seen
+
+    detail = f"每请求换出口（{len(ips)} 个 IP / {len(countries)} 个国家）: {trail}"
+    return False, detail, seen
 
 
 def proxy_for_capsolver(proxy: Optional[str]) -> Optional[dict[str, Any]]:
@@ -109,6 +183,7 @@ _COUNTRY_TIMEZONE = {
     "UK": "Europe/London",
     "AU": "Australia/Sydney",
     "SG": "Asia/Singapore",
+    "PH": "Asia/Manila",
     "HK": "Asia/Hong_Kong",
     "JP": "Asia/Tokyo",
     "DE": "Europe/Berlin",
@@ -123,6 +198,35 @@ _COUNTRY_INFER_PATTERNS = [
     re.compile(r"(?:country|region|geo|area)[-_]([A-Z]{2})\b", re.I),
     re.compile(r"residential[-_]([A-Z]{2})\b", re.I),
 ]
+
+_IPWO_ZONE_SELECTOR_RE = re.compile(
+    r"(?i)(?P<prefix>(?:^|[_-])(?:custom[_-])?zone[_-])"
+    r"(?P<value>global|[a-z]{2})(?=$|[_-])"
+)
+
+
+def rewrite_ipwo_zone_country(proxy_line: str, country: str) -> str:
+    """Rewrite IPWO ``custom_zone_GLOBAL`` username to ``custom_zone_US`` etc.
+
+    GLOBAL sticky 出口国家随机，与 ``--countries`` 无关，微软易报
+    ``We ran into a problem``。按本轮国家重写 zone 使 IP 与 locale 一致。
+    """
+    cc = (country or "US").strip().upper()
+    if len(cc) != 2:
+        return proxy_line
+    cfg = parse_proxy((proxy_line or "").strip())
+    if not cfg or not cfg.username or not cfg.password:
+        return proxy_line
+
+    def _replace_zone(match: re.Match[str]) -> str:
+        current = match.group("value")
+        selected = cc if current.isupper() else cc.lower()
+        return f"{match.group('prefix')}{selected}"
+
+    new_user, count = _IPWO_ZONE_SELECTOR_RE.subn(_replace_zone, cfg.username, count=1)
+    if count == 0 or new_user == cfg.username:
+        return proxy_line
+    return f"{cfg.host}:{cfg.port}:{new_user}:{cfg.password}"
 
 
 def infer_country_from_template(template: str) -> str:
