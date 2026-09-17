@@ -496,6 +496,45 @@ def _verify2(
     )
 
 
+def _refresh_press_challenge(
+    http: OutlookHttpSession,
+    ctx: SignupSession,
+    account: AccountInfo,
+    proxy: Optional[str],
+) -> Optional[tuple[dict[str, Any], str]]:
+    """press 打码失败后重新走 risk 链拿全新挑战（旧 uuid/vid 已过期，原地重打必 SESSION_EXPIRED）。"""
+    try:
+        risk_initialize(http, ctx, "")
+        if not ctx.continuation_token:
+            logger.warning("刷新挑战：risk/initialize 未返回 continuationToken")
+            return None
+        if ctx.human_sensor_url:
+            load_human_sensor(http, ctx)
+        px_meta = _acquire_silent_px(http, ctx, mode="solver", proxy=proxy, country=account.country)
+        signature = build_msa_risk_verify_signature(account, ctx)
+        resp1 = risk_verify(
+            http, ctx,
+            continuation_token=ctx.continuation_token,
+            risk_provider_metadata=build_px_metadata(px_meta),
+            msa_risk_verify_signature=signature,
+        )
+        state = resp1.get("state", "")
+        logger.info("刷新挑战 risk/verify #1 state=%s", state)
+        if state != "riskChallengeRequired":
+            return None
+        challenge = resp1.get("challengeDetails", {})
+        meta = challenge.get("challengeMetadata", {}) or {}
+        ctype = challenge.get("challengeType", "HumanCaptcha")
+        ctx.px_challenge_meta = meta
+        logger.info(
+            "刷新挑战成功 uuid=%s vid=%s",
+            str(meta.get("uuid", ""))[:24], str(meta.get("vid", ""))[:24],
+        )
+        return meta, ctype
+    except Exception as exc:
+        logger.warning("刷新挑战异常: %s", exc)
+        return None
+
 def _protocol_verify2(
     http: OutlookHttpSession,
     ctx: SignupSession,
@@ -541,8 +580,22 @@ def _protocol_verify2(
             if nxt:
                 meta = nxt
                 ctx.px_challenge_meta = meta
+                continue
+            # verify #2 没给新挑战且未 continue → 挑战可能已过期，刷新后再打
+            if attempt < max_attempts:
+                refreshed = _refresh_press_challenge(http, ctx, account, proxy)
+                if refreshed:
+                    meta, challenge_type = refreshed
+                    continue
         except RuntimeError as exc:
             logger.warning("纯协议 press 打码失败 attempt=%s: %s", attempt, exc)
+            # 旧挑战 uuid/vid 已过期（重打必 SESSION_EXPIRED），刷新挑战后再试
+            if attempt < max_attempts:
+                refreshed = _refresh_press_challenge(http, ctx, account, proxy)
+                if refreshed:
+                    meta, challenge_type = refreshed
+                    time.sleep(1.0)
+                    continue
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 403:
                 logger.error("纯协议 verify #2 403 riskBlock")
