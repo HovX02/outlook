@@ -278,20 +278,183 @@ def _clear_abuse(http: OutlookHttpSession, resp, proxy: str):
         logger.info("Abuse 解封后续跳 urlRU")
         return http.get(ru, allow_redirects=True)
     return restored
+def _decode_wlx(s: str) -> str:
+    """还原 account.live.com WLXAccount 页的 JS 转义（\\u0026 / \\u002f / \\u003d 等）。"""
+    try:
+        return s.encode("utf-8").decode("unicode_escape")
+    except Exception:  # noqa: BLE001
+        return s
+
+
+def _is_unfamiliar_location(body: str) -> bool:
+    """「Help us protect your account」UnfamiliarLocationHard 页（/identity/confirm）。"""
+    return (
+        "UnfamiliarLocationHard" in body
+        or ("rawProofList" in body and "proofPurpose" in body)
+    )
+
+
+def _extract_confirm_identity(body: str) -> dict[str, Any]:
+    """从 /identity/confirm 提取 SendOtt / VerifyCode 所需参数。
+
+    请求体（反向 acctcdn confirmidentity.js 坐实）：
+      SendOtt    = {token, purpose, epid, autoVerification, autoVerificationFailed,
+                    confirmProof?, HFId..HPId}
+      VerifyCode = {code, action:"IptVerify", purpose, epid, confirmProof?}
+    首次 SendOtt 的 token 为空（页面无 token，由服务器会话 cookie 识别），
+    VerifyCode 响应返回 {proofData, token, route} 供续跳。
+    """
+    def _s(key: str) -> str:
+        m = re.search(rf'"{re.escape(key)}"\s*:\s*"((?:[^"\\]|\\.)*)"', body)
+        return _decode_wlx(m.group(1)) if m else ""
+
+    info: dict[str, Any] = {}
+    m = re.search(r'"sendOtt"\s*:\s*\{[^}]*?"url"\s*:\s*"((?:[^"\\]|\\.)*)"', body)
+    info["send_ott_url"] = _decode_wlx(m.group(1)) if m else ""
+    m = re.search(r'"verifyCode"\s*:\s*\{[^}]*?"url"\s*:\s*"((?:[^"\\]|\\.)*)"', body)
+    info["verify_code_url"] = _decode_wlx(m.group(1)) if m else ""
+    info["purpose"] = _s("proofPurpose") or "UnfamiliarLocationHard"
+    info["verify_action"] = _s("verifyProofAction") or "IptVerify"
+    info["api_canary"] = _s("apiCanary")
+    info["token"] = _s("token")
+    m = re.search(r'"hpgid"\s*:\s*(\d+)', body)
+    info["hpgid"] = m.group(1) if m else "200355"
+    proofs: list[dict[str, Any]] = []
+    m = re.search(r'"rawProofList"\s*:\s*"((?:[^"\\]|\\.)*)"', body)
+    if m:
+        try:
+            arr = json.loads(_decode_wlx(m.group(1)))
+            proofs = arr if isinstance(arr, list) else []
+        except json.JSONDecodeError:
+            proofs = []
+    info["proofs"] = proofs
+    email_proof = next(
+        (p for p in proofs if p.get("channel") == "Email" and p.get("epid")),
+        None,
+    )
+    info["epid"] = (email_proof or {}).get("epid", "")
+    info["proof_name"] = (email_proof or {}).get("name", "")
+    return info
+
+
+def _handle_unfamiliar_location(
+    http: OutlookHttpSession,
+    resp,
+    proxy: str,
+    email: str,
+    recovery_email: str,
+    uaid: str,
+):
+    """UnfamiliarLocationHard：SendOtt → CF 读码 → VerifyCode → 续跳。"""
+    body = resp.text or ""
+    info = _extract_confirm_identity(body)
+    if not info["epid"] or not info["send_ott_url"] or not info["verify_code_url"]:
+        raise RuntimeError(
+            "UnfamiliarLocationHard 页缺字段: "
+            + json.dumps({k: (v[:24] if isinstance(v, str) else v) for k, v in info.items()})
+        )
+    if not recovery_email:
+        raise RuntimeError("UnfamiliarLocationHard 需要 recovery_email 收码（页内仅掩码名）")
+
+    page_url = resp.url or "https://account.live.com/identity/confirm"
+    origin = "https://account.live.com"
+    hdrs = {
+        "Content-Type": "application/json; charset=utf-8",
+        "Accept": "application/json",
+        "Origin": origin,
+        "Referer": page_url,
+        "canary": info["api_canary"],
+        "client-request-id": uaid,
+        "hpgid": info["hpgid"],
+        "hpgact": "0",
+    }
+
+    # 1) 快照 CF 已有邮件 id（去重旧码）
+    client = None
+    before_ids: set[str] = set()
+    try:
+        from outlook_api_reg.cf_domain_mail import CFDomainMailClient, load_config
+
+        client = CFDomainMailClient(load_config())
+        before_ids = client.snapshot_ids(recovery_email)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("CF 快照失败（继续但不保证去重旧码）: %s", exc)
+
+    # 2) SendOtt：触发发码（token 初始为空，服务器按会话 cookie 识别）
+    send_body = {
+        "token": info["token"] or "",
+        "purpose": info["purpose"],
+        "epid": info["epid"],
+        "autoVerification": False,
+        "autoVerificationFailed": False,
+    }
+    logger.info(
+        "UnfamiliarLocationHard SendOtt epid=%.24s… purpose=%s proof=%s",
+        info["epid"], info["purpose"], info["proof_name"],
+    )
+    sent = http.post(info["send_ott_url"], json=send_body, headers=hdrs, allow_redirects=False)
+    _dump("rescue_send_ott.json", sent.text or "")
+    logger.info("SendOtt status=%s body=%s", sent.status_code, (sent.text or "")[:180])
+    if sent.status_code >= 400:
+        raise RuntimeError(f"SendOtt HTTP {sent.status_code}: {(sent.text or '')[:180]}")
+
+    # 3) 读 CF 验证码（只读快照之后的新邮件，since_ts=现在）
+    if client is None:
+        raise RuntimeError("CF 收码客户端不可用")
+    code = client.read_security_code(
+        recovery_email, before_ids=before_ids, since_ts=time.time(), timeout=150,
+    )
+    if not code:
+        raise RuntimeError("UnfamiliarLocationHard 未读到恢复邮箱验证码")
+
+    # 4) VerifyCode
+    verify_body = {
+        "code": code,
+        "action": info["verify_action"],
+        "purpose": info["purpose"],
+        "epid": info["epid"],
+    }
+    logger.info("UnfamiliarLocationHard VerifyCode code=%s action=%s", code, info["verify_action"])
+    vr = http.post(info["verify_code_url"], json=verify_body, headers=hdrs, allow_redirects=False)
+    _dump("rescue_verify_code.json", vr.text or "")
+    logger.info("VerifyCode status=%s body=%s", vr.status_code, (vr.text or "")[:180])
+
+    # 5) 续跳：VerifyCode 成功返回 {proofData, token, route}
+    route = ""
+    try:
+        route = str((vr.json() or {}).get("route") or "")
+    except Exception:  # noqa: BLE001
+        m = re.search(r'"route"\s*:\s*"((?:[^"\\]|\\.)*)"', vr.text or "")
+        route = _decode_wlx(m.group(1)) if m else ""
+    if route:
+        logger.info("VerifyCode 成功 route=%s", route[:120])
+        return http.get(urllib.parse.urljoin(origin, route), allow_redirects=True)
+    return vr
 
 
 def _advance_after_login(
     http: OutlookHttpSession, resp, proxy: str, uaid: str,
     proof_meta: Optional[dict[str, str]] = None,
+    email: str = "",
+    recovery_email: str = "",
 ):
     if _is_abuse_page(resp):
         resp = _clear_abuse(http, resp, proxy)
         _dump("rescue_after_abuse.html", resp.text or "")
     ctx = _minimal_ctx(uaid)
-    return follow_auto_post_forms(
+    resp = follow_auto_post_forms(
         http, resp, tag="rescue", max_hops=12, enable_proof_pool=False,
         proof_meta=proof_meta, ctx=ctx,
     )
+    if _is_unfamiliar_location(resp.text or ""):
+        logger.info("命中 UnfamiliarLocationHard「Help us protect your account」→ OTT 处理")
+        resp = _handle_unfamiliar_location(http, resp, proxy, email, recovery_email, uaid)
+        _dump("rescue_after_unfamiliar.html", resp.text or "")
+        resp = follow_auto_post_forms(
+            http, resp, tag="afterunfamiliar", max_hops=12, enable_proof_pool=False,
+            proof_meta=proof_meta, ctx=ctx,
+        )
+    return resp
 
 
 def _apply_proof_meta(data: dict[str, Any], proof_meta: dict[str, str]) -> None:
@@ -833,12 +996,12 @@ def rescue_one(email: str, password: str, proxy: str, *, recovery_email: str = "
                 return {"ok": False, "reason": f"{_ERR[err]} (sErrorCode={err})", "diag": _diagnose(resp)}
 
         try:
-            resp = _advance_after_login(http, resp, proxy, uaid, proof_meta)
+            resp = _advance_after_login(http, resp, proxy, uaid, proof_meta, email=email, recovery_email=recovery_email)
         except RuntimeError as exc:
             return {"ok": False, "reason": str(exc), "diag": _diagnose(resp), **proof_meta}
         if _is_abuse_page(resp):
             try:
-                resp = _advance_after_login(http, resp, proxy, uaid, proof_meta)
+                resp = _advance_after_login(http, resp, proxy, uaid, proof_meta, email=email, recovery_email=recovery_email)
             except RuntimeError as exc:
                 return {"ok": False, "reason": str(exc), "diag": _diagnose(resp), **proof_meta}
         code = _extract_code(resp.url or "")

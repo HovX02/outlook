@@ -519,9 +519,12 @@ class CFDomainMailClient:
         return merged
 
     def snapshot_ids(self, alias: str) -> set[str]:
-        """快照该 alias 专用地址已有邮件 id（与 CF 管理台直查 address=alias 一致）。"""
-        mails = self.list_mails(alias, limit=self.cfg.alias_limit)
-        return {mid for mail in mails if (mid := _mail_id(mail))}
+        """快照该 alias 当前可见的全部邮件 id，作为收码前基线（去重旧码）。
+
+        必须与 _candidate_mails 用同一查询口径：catch-all（拓扑 B）的验证码在
+        中转箱里，只直查 alias 会漏掉，导致把上一轮的老码当新码读出。
+        """
+        return {mid for mail in self._candidate_mails(alias) if (mid := _mail_id(mail))}
 
     def read_security_code(
         self,
