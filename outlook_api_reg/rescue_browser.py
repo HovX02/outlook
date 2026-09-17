@@ -10,7 +10,12 @@
 from __future__ import annotations
 
 import logging
+import os
+import re
+import time
 from typing import Optional
+
+import requests
 
 from .cf_domain_mail import CFDomainMailClient, load_config
 from .roxy_browser import RoxyBrowserClient, roxy_cdp_session
@@ -42,14 +47,43 @@ def _body_text(page) -> str:
         return ""
 
 
-def _read_cf_code(recovery_email: str, since_ts: float = 0.0) -> str:
-    try:
-        return CFDomainMailClient(load_config()).read_security_code(
-            recovery_email, timeout=120, poll_interval=4.0, since_ts=since_ts,
-        )
-    except Exception as exc:
-        logger.error("CF 读码异常: %s", exc)
+def _read_cf_code(recovery_email: str, max_wait: int = 120) -> str:
+    """直读最新一封微软安全码邮件的验证码（不搞 since_ts，避免跳过复用码）。"""
+    api = os.environ.get("OUTLOOK_CF_WORKER_API_URL", "").strip().rstrip("/")
+    token = os.environ.get("OUTLOOK_CF_WORKER_ADMIN_TOKEN", "").strip()
+    if not api or not token or not recovery_email:
         return ""
+    session = requests.Session()
+    session.trust_env = False
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        try:
+            resp = session.get(
+                f"{api}/admin/mails",
+                params={"limit": 6, "offset": 0, "address": recovery_email},
+                headers={"x-admin-auth": token}, timeout=20,
+            )
+            data = resp.json() if resp.status_code == 200 else {}
+            mails = data.get("results") or data.get("mails") or data.get("data") or []
+            for mail in (mails or []):
+                if not isinstance(mail, dict):
+                    continue
+                source = str(mail.get("source") or "")
+                if "account-security" not in source and "accountprotection" not in source:
+                    continue
+                raw = str(mail.get("raw") or "")
+                m = re.search(r"single-use code is:?\s*(\d{6})", raw, re.I)
+                if m:
+                    return m.group(1)
+                sep = raw.find("\r\n\r\n")
+                body = raw[sep + 4:] if sep >= 0 else raw
+                m2 = re.search(r"\b(\d{6})\b", body)
+                if m2:
+                    return m2.group(1)
+        except Exception as exc:
+            logger.warning("CF 读码异常: %s", exc)
+        time.sleep(3)
+    return ""
 
 
 def rescue_one(
@@ -78,11 +112,13 @@ def rescue_one(
 
             # 填邮箱
             try:
-                inp = page.locator('input[type="email"], input[name="loginfmt"]').first
+                inp = page.locator('#usernameEntry, input[name="loginfmt"], #i0116').first
                 inp.wait_for(state="visible", timeout=30000)
-                inp.fill(email)
+                inp.click()
                 page.wait_for_timeout(300)
-                _click(page, "#idSIButton9", "#iNext", 'button[type="submit"]', 'input[type="submit"]')
+                inp.fill(email)
+                page.wait_for_timeout(1000)
+                _click(page, "#idSIButton9", "#iNext", 'button:has-text("Next")', 'button[type="submit"]', 'input[type="submit"]')
             except Exception as exc:
                 return {"ok": False, "state": "error", "detail": f"填邮箱异常: {exc}"}
 
@@ -91,23 +127,21 @@ def rescue_one(
                 body = _body_text(page)
                 url = page.url.lower()
 
-                if url.startswith("https://outlook.live.com") or url.startswith("https://account.live.com"):
+                if url.startswith("https://outlook.live.com"):
                     return {"ok": True, "state": "unlocked", "detail": url}
 
                 if "verify your email" in body or "send code" in body or "we'll send a code" in body:
                     if not recovery_email:
                         return {"ok": False, "state": "needs_phone", "detail": "需恢复邮箱但未提供"}
                     # 填恢复邮箱 + Send code
-                    for sel in ('input[type="email"]', 'input[type="text"]', 'input:not([type])'):
+                    for sel in ('input[name="iProofEmail"]', '#iProofEmail', 'input[type="email"]', 'input[type="text"]'):
                         i2 = page.locator(sel).first
                         if i2.count() and i2.is_visible():
                             i2.fill(recovery_email)
                             break
                     page.wait_for_timeout(300)
-                    import time as _t
-                    since = _t.time()
                     _click(page, 'button:has-text("Send code")', 'button:has-text("Next")', "#idSIButton9", "#iNext")
-                    code = _read_cf_code(recovery_email, since_ts=since)
+                    code = _read_cf_code(recovery_email)
                     if not code:
                         return {"ok": False, "state": "needs_phone", "detail": "未读到恢复邮箱验证码"}
                     # 输码
@@ -125,11 +159,11 @@ def rescue_one(
                     if pwd.count() and pwd.is_visible():
                         pwd.fill(password)
                         page.wait_for_timeout(300)
-                        _click(page, "#idSIButton9", "#iNext", 'button[type="submit"]', 'input[type="submit"]')
+                        _click(page, "#idSIButton9", "#iNext", 'button:has-text("Next")', 'button[type="submit"]', 'input[type="submit"]')
                     continue
 
             url = page.url.lower()
-            if url.startswith("https://outlook.live.com") or url.startswith("https://account.live.com"):
+            if url.startswith("https://outlook.live.com"):
                 return {"ok": True, "state": "unlocked", "detail": url}
             return {"ok": False, "state": "failed", "detail": f"未完成登录: {url[:120]}"}
     except Exception as exc:
