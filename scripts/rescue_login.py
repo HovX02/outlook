@@ -658,6 +658,28 @@ def _post_password(http: OutlookHttpSession, resp, email: str, password: str):
     )
 
 
+def _check_password(http: OutlookHttpSession, email: str, password: str, uaid: str = "", correlation_id: str = "") -> requests.Response:
+    """checkpassword.srf：密码检查（浏览器登录第 1 步，协议版之前漏了这步）。"""
+    url = "https://login.live.com/checkpassword.srf"
+    body = {
+        "username": email,
+        "password": password,
+        "checkpasswordflowtoken": "",
+    }
+    hdrs = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Origin": "https://login.live.com",
+        "Referer": "https://login.live.com/login.srf",
+        "client-request-id": correlation_id or uaid,
+        "correlationid": correlation_id or uaid,
+        "hpgact": "0",
+        "hpgid": "33",
+    }
+    logger.info("checkpassword.srf → 密码检查")
+    return http.post(url, json=body, headers=hdrs, allow_redirects=True)
+
+
 def _gct_proofs(gct: dict[str, Any]) -> list[dict[str, Any]]:
     creds = (gct.get("Credentials") or {}) if isinstance(gct, dict) else {}
     proofs = creds.get("OtcLoginEligibleProofs") or []
@@ -791,6 +813,13 @@ def rescue_one(email: str, password: str, proxy: str, *, recovery_email: str = "
                 logger.warning("OTC 未发出")
 
         if not used_otc:
+            # 浏览器登录第 1 步：checkpassword.srf（密码检查），漏了这步会导致 ppsecure 循环
+            _uaid = (resp.url or "").split("uaid=")[-1].split("&")[0] if "uaid=" in (resp.url or "") else ""
+            _corr = _config_str(resp.text or "", "correlationId")
+            try:
+                _check_password(http, email, password, _uaid, _corr)
+            except Exception as _e:
+                logger.warning("checkpassword.srf 失败（继续原流程）: %s", _e)
             resp = _post_password(http, resp, email, password)
             _dump("rescue_after_password.html", resp.text or "")
             err = _config_str(resp.text or "", "sErrorCode")
