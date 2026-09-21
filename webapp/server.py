@@ -164,10 +164,89 @@ def _proxy_url(raw: Optional[str]) -> str:
         return ""
 
 
+CAPTCHA_PROVIDER_CATALOG: list[dict[str, str]] = [
+    {
+        "id": "offcaptcha",
+        "label": "OffCaptcha",
+        "key_setting": "OFFCAPTCHA_API_KEY",
+        "hint": "PX invisible + press（推荐）",
+    },
+    {
+        "id": "captcha_run",
+        "label": "captcha.run",
+        "key_setting": "CAPTCHA_RUN_API_KEY",
+        "hint": "silent → press 单 task",
+    },
+    {
+        "id": "ezcaptcha",
+        "label": "EzCaptcha",
+        "key_setting": "EZCAPTCHA_API_KEY",
+        "hint": "PerimeterX / PxInvisible",
+    },
+    {
+        "id": "capsolver",
+        "label": "CapSolver",
+        "key_setting": "CAPSOLVER_API_KEY",
+        "hint": "AntiPerimeterX",
+    },
+    {
+        "id": "local",
+        "label": "本地 SwiftShader",
+        "key_setting": "",
+        "hint": "无第三方 Key，需本机浏览器环境",
+    },
+]
+
+
+def _captcha_provider_meta(provider_id: str) -> Optional[dict[str, str]]:
+    pid = (provider_id or "").strip().lower()
+    for row in CAPTCHA_PROVIDER_CATALOG:
+        if row["id"] == pid:
+            return row
+    return None
+
+
+def _captcha_provider_configured(provider_id: str) -> bool:
+    meta = _captcha_provider_meta(provider_id)
+    if not meta:
+        return False
+    if not meta.get("key_setting"):
+        return True
+    key = (os.environ.get(meta["key_setting"]) or app_db.get_setting(meta["key_setting"]) or "").strip()
+    return bool(key)
+
+
+def _resolve_captcha_provider(p: dict[str, Any]) -> str:
+    raw = p.get("captcha_provider")
+    if raw:
+        return str(raw).strip().lower()
+    return (
+        app_db.get_setting("DEFAULT_CAPTCHA_PROVIDER")
+        or "offcaptcha"
+    ).strip().lower() or "offcaptcha"
+
+
+def _parse_proxy_selection(p: dict[str, Any]) -> tuple[bool, Optional[str]]:
+    """返回 (use_pool, provider_filter)。"""
+    sel = str(p.get("proxy_selection") or "").strip()
+    if not sel:
+        if p.get("use_proxy_pool"):
+            return True, (p.get("proxy_provider") or None)
+        proxy = (p.get("proxy") or "").strip()
+        return (False, None) if proxy else (True, None)
+    if sel == "auto":
+        return True, None
+    if sel.startswith("provider:"):
+        prov = sel.split(":", 1)[1].strip()
+        return True, prov or None
+    return False, None
+
+
 def _build_register_proxy_plan(p: dict[str, Any], count: int) -> tuple[list[str], dict[str, Any]]:
-    """注册任务：代理池（SQLite）优先，备用代理仅来自 Web 表单。"""
-    if p.get("use_proxy_pool"):
-        plan, meta = proxy_pool.plan_for_batch(count)
+    """注册任务：代理池（SQLite）按选择分配；兼容旧版 use_proxy_pool + 文本框。"""
+    use_pool, provider_filter = _parse_proxy_selection(p)
+    if use_pool:
+        plan, meta = proxy_pool.plan_for_batch(count, provider=provider_filter)
         if len(plan) < count:
             fallback = (p.get("proxy") or "").strip()
             if fallback:
@@ -177,11 +256,18 @@ def _build_register_proxy_plan(p: dict[str, Any], count: int) -> tuple[list[str]
                 plan = plan + list(extra)
                 meta["fallback_used"] = True
         if not plan:
-            raise ValueError("代理池无可用条目，请先在「代理池」页添加代理，或在注册页填写备用代理（会自动写入数据库）。")
+            hint = "代理池无可用条目"
+            if provider_filter:
+                hint += f"（代理商 {provider_filter}）"
+            hint += "。请先在「代理池」页添加并启用代理。"
+            raise ValueError(hint)
+        meta["proxy_selection"] = p.get("proxy_selection") or "auto"
+        if provider_filter:
+            meta["proxy_provider"] = provider_filter
         return plan, meta
     proxy = (p.get("proxy") or "").strip()
     if not proxy:
-        raise ValueError("请填写代理或启用「使用代理池」。")
+        raise ValueError("请选择代理池分配方式，或在「代理池」页添加条目。")
     from outlook_api_reg.batch import _plan_proxies
 
     return [x or "" for x in _plan_proxies(proxy, count)], {"source": "manual"}
@@ -479,6 +565,8 @@ class Job:
         self.batch_summary: Optional[dict[str, Any]] = None
         self._queue: "queue.Queue[dict[str, Any]]" = queue.Queue()
         self._lock = threading.Lock()
+        self._cancelled = False
+        self._cancelled = False
 
     def emit(self, event: dict[str, Any]) -> None:
         self._queue.put(event)
@@ -617,6 +705,45 @@ def _persist_job(job: "Job") -> None:
     if job.params.get("dry_run"):
         return
     account_store.save_job(_job_record(job))
+
+
+def _finish_job(job: "Job", status: str, log_msg: str = "") -> None:
+    job.status = status
+    if log_msg:
+        job.push_log("WARNING" if status in {"cancelled", "error"} else "INFO", log_msg)
+    with job._lock:
+        for acct in job.accounts:
+            if acct.get("status") in {"等待中", "进行中"}:
+                acct["status"] = "失败"
+                if status == "cancelled" and not acct.get("error"):
+                    acct["error"] = "任务已取消"
+    try:
+        _persist_job(job)
+    except Exception:  # noqa: BLE001
+        pass
+    job.emit({"type": "done", "status": job.status})
+
+
+def _cancel_job(job: "Job", reason: str = "用户取消") -> None:
+    if job.status != "running":
+        return
+    job._cancelled = True
+    _finish_job(job, "cancelled", f"任务已取消：{reason}")
+
+
+def _reconcile_stale_jobs_on_startup() -> None:
+    """服务重启后，内存无任务但 DB 仍标 running 的批次改为 error。"""
+    try:
+        live_ids = set(_jobs.keys())
+        for rec in _load_jobs_store():
+            if rec.get("status") != "running" or rec.get("id") in live_ids:
+                continue
+            rec["status"] = "error"
+            rec["fail_count"] = max(int(rec.get("fail_count") or 0), int(rec.get("count") or 1))
+            account_store.save_job(rec)
+    except Exception:  # noqa: BLE001
+        pass
+
 
 
 def _batch_index() -> dict[str, dict[str, Any]]:
@@ -900,16 +1027,53 @@ def _run_batch_iter(job: Job, p: dict[str, Any]) -> bool:
         _active_batch_job = None
 
 
+def _apply_captcha_runtime(p: dict[str, Any]) -> str:
+    """按所选打码平台注入环境变量，返回 px_mode。"""
+    provider = _resolve_captcha_provider(p)
+    p["captcha_provider"] = provider
+    meta = _captcha_provider_meta(provider)
+    if meta and meta.get("key_setting"):
+        db_key = (app_db.get_setting(meta["key_setting"]) or "").strip()
+        if db_key:
+            os.environ[meta["key_setting"]] = db_key
+    # 兼容旧版注册页直接传 captcha_key（仅 captcha.run）
+    legacy_key = (p.get("captcha_key") or "").strip()
+    if legacy_key:
+        os.environ["CAPTCHA_RUN_API_KEY"] = legacy_key
+        app_db.set_setting("CAPTCHA_RUN_API_KEY", legacy_key)
+        if not p.get("captcha_provider"):
+            provider = "captcha_run"
+            p["captcha_provider"] = provider
+
+    if provider == "offcaptcha":
+        os.environ["PX_SOLVER"] = "offcaptcha"
+        os.environ.setdefault("OFFCAPTCHA_APPLY_UA", "1")
+        os.environ.pop("PX_PRESS_FALLBACK", None)
+        px_mode = "offcaptcha"
+    elif provider == "local":
+        os.environ["PX_SOLVER"] = "swiftshader"
+        os.environ.pop("PX_PRESS_FALLBACK", None)
+        px_mode = "local"
+    elif provider == "ezcaptcha":
+        os.environ.pop("PX_SOLVER", None)
+        os.environ["PX_PRESS_FALLBACK"] = "ezcaptcha"
+        px_mode = "solver"
+    elif provider == "capsolver":
+        os.environ.pop("PX_SOLVER", None)
+        os.environ["PX_PRESS_FALLBACK"] = "capsolver"
+        px_mode = "solver"
+    else:
+        os.environ.pop("PX_SOLVER", None)
+        os.environ.pop("PX_PRESS_FALLBACK", None)
+        px_mode = "solver"
+    p["px_mode"] = px_mode
+    return provider, px_mode, (meta or {}).get("label") or provider
+
+
 def _run_real(job: Job) -> None:
     p = job.params
-    # DB 为主：任务带了 key 就用并回落库；没带则从库里回读注入环境变量。
-    if p.get("captcha_key"):
-        os.environ["CAPTCHA_RUN_API_KEY"] = p["captcha_key"]
-        app_db.set_setting("CAPTCHA_RUN_API_KEY", p["captcha_key"])
-    elif not os.environ.get("CAPTCHA_RUN_API_KEY"):
-        db_key = app_db.get_setting("CAPTCHA_RUN_API_KEY")
-        if db_key:
-            os.environ["CAPTCHA_RUN_API_KEY"] = db_key
+    provider, px_mode, provider_label = _apply_captcha_runtime(p)
+    job.push_log("INFO", f"打码平台: {provider_label}（px_mode={px_mode}）")
 
     job.push_log("INFO", "正在规划代理…")
     try:
@@ -1007,6 +1171,9 @@ class RegisterRequest(BaseModel):
     jitter_max: Optional[float] = None
     batch_label: Optional[str] = None  # 留空则按 日期-国家-域名-数量-格式 自动生成
     use_proxy_pool: bool = False
+    captcha_provider: Optional[str] = None
+    proxy_selection: Optional[str] = None
+    proxy_provider: Optional[str] = None
     # 执行路线：公共参数由此请求承载，具体执行器在 worker 内分派。
     execution_route: str = "protocol"
     roxy_profile_id: Optional[str] = None
@@ -1104,6 +1271,7 @@ class KeepaliveRequest(BaseModel):
 class RescueRequest(BaseModel):
     emails: Optional[list[str]] = None
     proxy: Optional[str] = None
+    proxy_selection: Optional[str] = None
     concurrency: int = 1
     use_proxy_pool: bool = False
 
@@ -1141,6 +1309,7 @@ def _startup_log() -> None:
             "恢复邮箱未配置：请设置 OUTLOOK_RECOVERY_BACKEND=cf_domain（your-cf-domain.com）"
             "或 OUTLOOK_EXTERNAL_RECOVERY_POOL_FILE + OUTLOOK_RECOVERY_IMAP_HOST"
         )
+    _reconcile_stale_jobs_on_startup()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -1169,13 +1338,22 @@ def get_config() -> JSONResponse:
             "proxy": proxy,
             "captcha_key_masked": _mask(captcha_key),
             "captcha_key_set": bool(captcha_key),
-            "px_modes": ["solver"],
+            "px_modes": ["solver", "offcaptcha", "local"],
+            "captcha_providers": [row["id"] for row in CAPTCHA_PROVIDER_CATALOG],
             "domains": [
-                "@outlook.com",
-                "@hotmail.com",
-                "@outlook.com.au",
-                "@outlook.de",
-                "@outlook.jp",
+                {
+                    "value": domain,
+                    "label": reg_constants.OUTLOOK_EMAIL_DOMAIN_LABELS.get(domain, domain),
+                }
+                for domain in reg_constants.OUTLOOK_EMAIL_DOMAINS
+            ],
+            "countries": [
+                {
+                    "code": code,
+                    "name": name,
+                    "name_zh": reg_constants.REGISTRATION_COUNTRY_NAMES_ZH.get(code, name),
+                }
+                for code, name in sorted(reg_constants.REGISTRATION_COUNTRY_NAMES.items())
             ],
             "default_country": "US",
             "mail_client_id": MAIL_CLIENT_ID,
@@ -1205,13 +1383,23 @@ def get_config() -> JSONResponse:
 # 应用设置（DB 为主：captcha.run / EzCaptcha / CapSolver key 存 app_meta）
 # ---------------------------------------------------------------------------
 
-_SETTINGS_KEYS = ("CAPTCHA_RUN_API_KEY", "EZCAPTCHA_API_KEY", "CAPSOLVER_API_KEY")
+_SETTINGS_KEYS = (
+    "CAPTCHA_RUN_API_KEY",
+    "EZCAPTCHA_API_KEY",
+    "CAPSOLVER_API_KEY",
+    "OFFCAPTCHA_API_KEY",
+    "OFFCAPTCHA_SOFT_ID",
+    "DEFAULT_CAPTCHA_PROVIDER",
+)
 
 
 class SettingsRequest(BaseModel):
     captcha_run_api_key: Optional[str] = None
     ezcaptcha_api_key: Optional[str] = None
     capsolver_api_key: Optional[str] = None
+    offcaptcha_api_key: Optional[str] = None
+    offcaptcha_soft_id: Optional[str] = None
+    default_captcha_provider: Optional[str] = None
 
 
 def _setting_status(key: str) -> dict[str, Any]:
@@ -1220,8 +1408,14 @@ def _setting_status(key: str) -> dict[str, Any]:
 
 
 @app.get("/api/settings")
-def get_settings() -> JSONResponse:
-    return JSONResponse({k.lower(): _setting_status(k) for k in _SETTINGS_KEYS})
+def get_settings(reveal: bool = Query(False)) -> JSONResponse:
+    out: dict[str, Any] = {}
+    for key in _SETTINGS_KEYS:
+        st = dict(_setting_status(key))
+        if reveal and key.endswith("_API_KEY"):
+            st["key"] = (os.environ.get(key) or app_db.get_setting(key) or "").strip()
+        out[key.lower()] = st
+    return JSONResponse(out)
 
 
 @app.post("/api/settings")
@@ -1231,19 +1425,113 @@ def save_settings(req: SettingsRequest) -> JSONResponse:
         "CAPTCHA_RUN_API_KEY": req.captcha_run_api_key,
         "EZCAPTCHA_API_KEY": req.ezcaptcha_api_key,
         "CAPSOLVER_API_KEY": req.capsolver_api_key,
+        "OFFCAPTCHA_API_KEY": req.offcaptcha_api_key,
+        "OFFCAPTCHA_SOFT_ID": req.offcaptcha_soft_id,
+        "DEFAULT_CAPTCHA_PROVIDER": req.default_captcha_provider,
     }
     changed = []
     for key, value in mapping.items():
         if value is None:
             continue
-        app_db.set_setting(key, value.strip())
-        # 同步进程环境变量，使本进程内即时生效（引擎/CLI 复用同进程时无需重启）。
-        if value.strip():
-            os.environ[key] = value.strip()
-        else:
-            os.environ.pop(key, None)
+        cleaned = value.strip()
+        if key == "DEFAULT_CAPTCHA_PROVIDER" and cleaned:
+            if not _captcha_provider_meta(cleaned):
+                raise HTTPException(status_code=400, detail=f"未知打码平台: {cleaned}")
+        app_db.set_setting(key, cleaned)
+        if key.endswith("_API_KEY"):
+            if cleaned:
+                os.environ[key] = cleaned
+            else:
+                os.environ.pop(key, None)
         changed.append(key.lower())
     return JSONResponse({"ok": True, "changed": changed, "settings": {k.lower(): _setting_status(k) for k in _SETTINGS_KEYS}})
+
+
+def _register_options_payload() -> dict[str, Any]:
+    captcha_items: list[dict[str, Any]] = []
+    for row in CAPTCHA_PROVIDER_CATALOG:
+        st = _setting_status(row["key_setting"]) if row.get("key_setting") else {"set": True, "masked": "", "source": "builtin"}
+        captcha_items.append(
+            {
+                "id": row["id"],
+                "label": row["label"],
+                "hint": row.get("hint") or "",
+                "configured": _captcha_provider_configured(row["id"]),
+                "requires_key": bool(row.get("key_setting")),
+                **st,
+            }
+        )
+    default_provider = (
+        app_db.get_setting("DEFAULT_CAPTCHA_PROVIDER")
+        or next((x["id"] for x in captcha_items if x["configured"]), "offcaptcha")
+    )
+    pool_stats = proxy_pool.pool_stats()
+    proxy_options: list[dict[str, Any]] = [
+        {
+            "value": "auto",
+            "label": f"自动（代理池 · {pool_stats.get('enabled', 0)} 条可用）",
+            "count": pool_stats.get("enabled", 0),
+        }
+    ]
+    for prov in proxy_pool.list_providers():
+        name = prov.get("name") or ""
+        enabled = int(prov.get("enabled") or 0)
+        if not name:
+            continue
+        proxy_options.append(
+            {
+                "value": f"provider:{name}",
+                "label": f"{name}（{enabled} 条可用）",
+                "count": enabled,
+                "provider": name,
+            }
+        )
+    return {
+        "ok": True,
+        "captcha": {
+            "items": captcha_items,
+            "default": default_provider,
+        },
+        "proxy": {
+            "options": proxy_options,
+            "stats": pool_stats,
+        },
+    }
+
+
+@app.get("/api/register-options")
+def get_register_options() -> JSONResponse:
+    return JSONResponse(_register_options_payload())
+
+
+@app.get("/api/captcha-provider/{provider_id}/key")
+def get_captcha_provider_key(provider_id: str) -> JSONResponse:
+    """本机控制台编辑弹窗回显完整 Key（仅 localhost 管理用途）。"""
+    meta = _captcha_provider_meta(provider_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail="未知打码平台")
+    key_setting = meta.get("key_setting") or ""
+    if not key_setting:
+        return JSONResponse({"ok": True, "provider": provider_id, "key": "", "configured": True})
+    val = (os.environ.get(key_setting) or app_db.get_setting(key_setting) or "").strip()
+    return JSONResponse(
+        {"ok": True, "provider": provider_id, "key": val, "configured": bool(val), "masked": _mask(val)}
+    )
+
+
+@app.get("/api/captcha-provider/{provider_id}/key")
+def get_captcha_provider_key(provider_id: str) -> JSONResponse:
+    """本机控制台编辑弹窗回显完整 Key（仅 localhost 管理用途）。"""
+    meta = _captcha_provider_meta(provider_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail="未知打码平台")
+    key_setting = meta.get("key_setting") or ""
+    if not key_setting:
+        return JSONResponse({"ok": True, "provider": provider_id, "key": "", "configured": True})
+    val = (os.environ.get(key_setting) or app_db.get_setting(key_setting) or "").strip()
+    return JSONResponse(
+        {"ok": True, "provider": provider_id, "key": val, "configured": bool(val), "masked": _mask(val)}
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1268,30 +1556,35 @@ def start_register(req: RegisterRequest) -> JSONResponse:
     if not req.dry_run and req.count > 20:
         raise HTTPException(status_code=400, detail="真实注册单次上限 20，请分批。")
     if not req.dry_run:
-        # DB 为主：页面填了就落库；没填则回读库里已存的 key。
-        provided_key = (req.captcha_key or "").strip()
-        if provided_key:
-            app_db.set_setting("CAPTCHA_RUN_API_KEY", provided_key)
-        captcha_key = (
-            provided_key
-            or os.environ.get("CAPTCHA_RUN_API_KEY")
-            or app_db.get_setting("CAPTCHA_RUN_API_KEY")
-            or ""
-        ).strip()
-        proxy = (req.proxy or "").strip()
-        if proxy:
+        provider = _resolve_captcha_provider(req.model_dump())
+        if not _captcha_provider_meta(provider):
+            raise HTTPException(status_code=400, detail=f"未知打码平台: {provider}")
+        if not _captcha_provider_configured(provider):
+            meta = _captcha_provider_meta(provider) or {}
+            raise HTTPException(
+                status_code=400,
+                detail=f"请先在「打码平台」页配置 {meta.get('label') or provider} Key。",
+            )
+        req.captcha_provider = provider
+        legacy_key = (req.captcha_key or "").strip()
+        if legacy_key:
+            app_db.set_setting("CAPTCHA_RUN_API_KEY", legacy_key)
+        use_pool, provider_filter = _parse_proxy_selection(req.model_dump())
+        req.use_proxy_pool = use_pool
+        if provider_filter:
+            req.proxy_provider = provider_filter
+        if use_pool:
+            stats = proxy_pool.pool_stats(provider=provider_filter)
+            if stats.get("enabled", 0) < 1:
+                hint = "代理池无可用条目"
+                if provider_filter:
+                    hint += f"（代理商 {provider_filter}）"
+                raise HTTPException(status_code=400, detail=f"{hint}。请先在「代理池」页添加并启用。")
+        else:
+            proxy = (req.proxy or "").strip()
+            if not proxy:
+                raise HTTPException(status_code=400, detail="请选择代理池分配方式。")
             proxy_pool.ensure_templates([proxy], provider="web")
-        if req.use_proxy_pool:
-            stats = proxy_pool.pool_stats()
-            if stats.get("enabled", 0) < 1 and not proxy:
-                raise HTTPException(
-                    status_code=400,
-                    detail="代理池为空。请在「代理池」页添加，或在注册页填写代理（会自动写入数据库）。",
-                )
-        elif not proxy:
-            raise HTTPException(status_code=400, detail="请填写代理或启用「使用代理池」。")
-        if not captcha_key:
-            raise HTTPException(status_code=400, detail="请填写 captcha.run Key（Web 页对应输入框，会存入数据库，下次免填）。")
     concurrency = max(1, min(int(req.concurrency or 1), req.count))
 
     with _jobs_lock:
@@ -1299,7 +1592,11 @@ def start_register(req: RegisterRequest) -> JSONResponse:
             j for j in _jobs.values() if j.status == "running" and not j.params.get("dry_run")
         ]
         if running_real and not req.dry_run:
-            raise HTTPException(status_code=409, detail="已有注册任务进行中，请等待其完成。")
+            ids = ", ".join(j.batch_label or j.id[:8] for j in running_real)
+            raise HTTPException(
+                status_code=409,
+                detail=f"已有注册任务进行中（{ids}），请等待完成或点击「停止任务」。",
+            )
         job_id = uuid.uuid4().hex[:12]
         params = req.model_dump()
         params["concurrency"] = concurrency
@@ -1373,6 +1670,31 @@ def job_events(job_id: str) -> StreamingResponse:
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str) -> JSONResponse:
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="任务不存在或已结束（仅可取消内存中的进行中任务）")
+        if job.status != "running":
+            return JSONResponse({"ok": True, "job_id": job_id, "status": job.status, "already": True})
+        _cancel_job(job)
+        return JSONResponse({"ok": True, "job_id": job_id, "status": job.status})
+
+
+@app.post("/api/jobs/cancel-running")
+def cancel_running_jobs() -> JSONResponse:
+    cancelled: list[str] = []
+    with _jobs_lock:
+        for job in list(_jobs.values()):
+            if job.status == "running" and not job.params.get("dry_run"):
+                _cancel_job(job)
+                cancelled.append(job.id)
+    if not cancelled:
+        return JSONResponse({"ok": True, "cancelled": [], "message": "无进行中的任务"})
+    return JSONResponse({"ok": True, "cancelled": cancelled})
 
 
 # ---------------------------------------------------------------------------
@@ -1914,17 +2236,23 @@ def rescue_accounts(req: RescueRequest) -> JSONResponse:
             "message": "无可救援账号（需有密码）。",
         })
 
+    use_pool, provider_filter = _parse_proxy_selection(req.model_dump())
+    req.use_proxy_pool = use_pool
     proxy = rescue_proxy_raw((req.proxy or "").strip())
-    use_pool = bool(req.use_proxy_pool)
     if (req.proxy or "").strip():
         proxy_pool.ensure_templates([(req.proxy or "").strip()], provider="web")
-    if use_pool and not proxy_pool.pool_stats().get("enabled") and not proxy:
-        return JSONResponse({
-            "ok": False,
-            "implemented": True,
-            "message": "代理池为空，请先在「代理池」页添加或在重登时填写代理。",
-            "results": [],
-        })
+    if use_pool:
+        stats = proxy_pool.pool_stats(provider=provider_filter)
+        if stats.get("enabled", 0) < 1 and not proxy:
+            hint = "代理池无可用条目"
+            if provider_filter:
+                hint += f"（代理商 {provider_filter}）"
+            return JSONResponse({
+                "ok": False,
+                "implemented": True,
+                "message": f"{hint}。请先在「代理池」页添加。",
+                "results": [],
+            })
     conc = max(1, min(int(req.concurrency or 1), 2, len(tasks)))
     results: list[dict[str, Any]] = []
 
@@ -1933,7 +2261,9 @@ def rescue_accounts(req: RescueRequest) -> JSONResponse:
         one_proxy = proxy
         proxy_meta: dict[str, Any] = {}
         if use_pool:
-            one_proxy, proxy_meta = proxy_pool.resolve_for_email(email, fallback=proxy)
+            one_proxy, proxy_meta = proxy_pool.resolve_for_email(
+                email, fallback=proxy, provider=provider_filter,
+            )
             one_proxy = rescue_proxy_raw(one_proxy or proxy)
         try:
             out = rescue_and_persist(

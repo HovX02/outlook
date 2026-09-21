@@ -6,7 +6,7 @@
   - PXCaptchaPressAndHold  按住（verify #2）
 
 鉴权：Authorization: Bearer <OFFCAPTCHA_API_KEY>
-建任务：POST /v1/tasks/
+建任务：POST /v1/tasks/  （body 含 task + softID，默认 OFFCAPTCHA_SOFT_ID）
 轮询：  GET  /v1/tasks/{task_id}  直到 status=ready
 """
 from __future__ import annotations
@@ -18,7 +18,13 @@ from typing import Any, Optional
 
 import requests
 
-from .constants import LOGIN_MS_BASE, OFFCAPTCHA_API_BASE, PX_APP_ID, RISK_VERIFY_PATH
+from .constants import (
+    LOGIN_MS_BASE,
+    OFFCAPTCHA_API_BASE,
+    OFFCAPTCHA_SOFT_ID,
+    PX_APP_ID,
+    RISK_VERIFY_PATH,
+)
 from .proxy_utils import parse_proxy
 
 logger = logging.getLogger(__name__)
@@ -28,16 +34,42 @@ _INVISIBLE_TIMEOUT = 60
 _PRESS_TIMEOUT = 150
 
 
+def _db_setting(key: str) -> str:
+    try:
+        from .database import get_setting
+
+        return get_setting(key, "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def api_key() -> str:
     return (
         os.environ.get("OFFCAPTCHA_API_KEY")
         or os.environ.get("OFFCAPTCHA_KEY")
+        or _db_setting("OFFCAPTCHA_API_KEY")
         or ""
     ).strip()
 
 
 def api_base() -> str:
     return (os.environ.get("OFFCAPTCHA_API_BASE") or OFFCAPTCHA_API_BASE).rstrip("/")
+
+
+def soft_id() -> str:
+    return (
+        os.environ.get("OFFCAPTCHA_SOFT_ID")
+        or os.environ.get("OFFCAPTCHA_SOFTID")
+        or OFFCAPTCHA_SOFT_ID
+    ).strip()
+
+
+def soft_id() -> str:
+    return (
+        os.environ.get("OFFCAPTCHA_SOFT_ID")
+        or os.environ.get("OFFCAPTCHA_SOFTID")
+        or OFFCAPTCHA_SOFT_ID
+    ).strip()
 
 
 def _headers() -> dict[str, str]:
@@ -164,10 +196,14 @@ def build_press_payload(
 
 
 def create_task(payload: dict[str, Any]) -> str:
+    body = dict(payload)
+    sid = soft_id()
+    if sid and "softID" not in body and "softId" not in body:
+        body["softID"] = sid
     url = f"{api_base()}/tasks/"
-    ttype = (payload.get("task") or {}).get("type", "?")
-    logger.info("offcaptcha 建任务 type=%s url=%s", ttype, url)
-    resp = requests.post(url, headers=_headers(), json=payload, timeout=45)
+    ttype = (body.get("task") or {}).get("type", "?")
+    logger.info("offcaptcha 建任务 type=%s url=%s softID=%s", ttype, url, sid or "-")
+    resp = requests.post(url, headers=_headers(), json=body, timeout=45)
     try:
         data = resp.json()
     except ValueError:

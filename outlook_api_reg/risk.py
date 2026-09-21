@@ -19,6 +19,7 @@ from .px_cookies import (
     bind_press_solution,
     build_challenge_solution,
     build_px_metadata,
+    clear_px_cookies,
     solver_context,
 )
 
@@ -35,6 +36,18 @@ class Verify2Failed(RegisterRetryable):
 
 class RiskBlocked(RegisterRetryable):
     """verify #1 riskBlock（AADSTS7005106，该 IP 被风控拦截）。"""
+
+
+def _is_offcaptcha_solver() -> bool:
+    return os.environ.get("PX_SOLVER", "").strip().lower() in {"offcaptcha", "off"}
+
+
+def _offcaptcha_user_agent(http: OutlookHttpSession) -> str:
+    return (
+        os.environ.get("OFFCAPTCHA_USER_AGENT", "").strip()
+        or http.session.headers.get("User-Agent", "")
+        or ""
+    )
 
 
 def load_human_sensor(http: OutlookHttpSession, ctx: SignupSession) -> None:
@@ -288,6 +301,264 @@ def _solve_via_swiftshader(
     )
 
 
+def _px_preseed_cookies(http: OutlookHttpSession) -> list[dict[str, str]]:
+    """把 HTTP 注册会话 cookie 预置进浏览器，使 press 与 verify#2 同一 PX 上下文。"""
+    out: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for c in http.session.cookies:
+        name = getattr(c, "name", "") or ""
+        if not name:
+            continue
+        domain = (getattr(c, "domain", "") or "").lower()
+        keep = (
+            name.startswith("_px")
+            or name in ("pxcts", "pxhd", "_pxhd", "amsc", "mkt", "MUID", "fptctx2")
+            or "live.com" in domain
+            or "microsoft" in domain
+            or "hsprotect" in domain
+        )
+        if not keep:
+            continue
+        dom = getattr(c, "domain", "") or ".live.com"
+        dom = dom if dom.startswith(".") else f".{dom.lstrip('.')}"
+        path = getattr(c, "path", None) or "/"
+        key = (name, dom, path)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "name": name,
+            "value": str(getattr(c, "value", "") or ""),
+            "domain": dom,
+            "path": path,
+        })
+    return out
+
+
+def _solve_via_swiftshader(
+    http: OutlookHttpSession,
+    ctx: SignupSession,
+    *,
+    phase: str,
+    proxy: Optional[str],
+    challenge_meta: Optional[dict[str, Any]] = None,
+    stable_vid: str = "",
+) -> dict[str, str]:
+    """自建 SwiftShader 浏览器 + xdotool/CDP 真按，不依赖 captcha.run。"""
+    _px_dir = os.path.join(os.path.dirname(__file__), "..", "px_solver")
+    if _px_dir not in sys.path:
+        sys.path.insert(0, _px_dir)
+    from px_swiftshader_solver import harvest  # noqa: E402
+
+    p = proxy or http.proxy
+    meta = challenge_meta or ctx.px_challenge_meta or {}
+    preseed = _px_preseed_cookies(http)
+    want_press = phase == "press"
+    logger.info(
+        "PX 走 SwiftShader 本地收割 phase=%s proxy=%s preseed=%d",
+        phase, str(p)[:40], len(preseed),
+    )
+
+    if not want_press:
+        px = http.px_cookies()
+        if px.get("px3"):
+            logger.info("SwiftShader silent 复用 HTTP 会话 _px3，跳过独立浏览器收割")
+            return px
+        logger.warning("HTTP 无 _px3，SwiftShader silent 回退浏览器（可能与注册会话脱节）")
+
+    if want_press and meta:
+        challenge_url = build_challenge_iframe_url(ctx, meta)
+        sol = harvest(
+            p,
+            want_press=True,
+            challenge_url=challenge_url,
+            session_id=str(meta.get("sessionId") or meta.get("session_id") or ctx.uaid),
+            vid=str(meta.get("vid", "") or stable_vid),
+            uuid=str(meta.get("uuid", "")),
+            app_id=str(meta.get("appId") or meta.get("app_id") or ""),
+            preseed_cookies=preseed or None,
+            signup_page_url=ctx.signup_page_url,
+        )
+    else:
+        sol = harvest(p, want_press=False, preseed_cookies=preseed or None)
+
+    if not sol.get("px3"):
+        raise RuntimeError(f"SwiftShader 未收割到 _px3 phase={phase}")
+    px3 = sol["px3"]
+    challenge_vid = str(meta.get("vid", "") or stable_vid) if want_press else ""
+    logger.info(
+        "SwiftShader 收割成功 px3=%s... pressed=%s has_1000=%s press_vid_match=%s backend=%s",
+        px3[:30], sol.get("pressed"), ":1000:" in px3,
+        sol.get("press_vid_match_reg"), sol.get("press_backend", ""),
+    )
+    if want_press:
+        if not sol.get("pressed"):
+            allow_silent = os.environ.get("PX_ALLOW_SILENT_PRESS", "").strip().lower() in {
+                "1", "true", "yes",
+            }
+            if not allow_silent:
+                raise RuntimeError(
+                    "SwiftShader press 未成功（pressed=False）；"
+                    "未出现可见 #px-captcha 或按压未生效（:1000: 仅为 PBKDF2 迭代数，非 press 标记）。"
+                    "试 PX_SWIFTSHADER_HEADFUL=1 + PX_OS_PRESS=1，或换 IP 后重试"
+                )
+            logger.warning("PX_ALLOW_SILENT_PRESS=1：pressed=False 仍提交（易 riskBlock）")
+        last_pv = str(sol.get("last_press_vid", ""))
+        if challenge_vid and last_pv and last_pv != challenge_vid:
+            raise RuntimeError(
+                f"SwiftShader press collector vid={last_pv[:24]} != challenge vid={challenge_vid[:24]}"
+            )
+        if challenge_vid and sol.get("press_vid_match_reg") is False and last_pv:
+            raise RuntimeError(
+                f"SwiftShader press_vid 与 challenge 不匹配 challenge={challenge_vid[:24]}"
+            )
+        sr = sol.get("solve_result")
+        strict_sr = os.environ.get("PX_STRICT_SOLVE_RESULT", "1").strip().lower() not in {
+            "0", "false", "no",
+        }
+        if strict_sr and sr is not None and str(sr) not in {"0", "0.0"}:
+            raise RuntimeError(f"SwiftShader press solve_result={sr}（期望 0）")
+    preserve = challenge_vid or stable_vid or str(sol.get("pxvid", "") or "")
+    return http.apply_px_tokens(
+        {
+            "px3": px3,
+            "pxde": sol.get("pxde", ""),
+            "pxvid": sol.get("pxvid", ""),
+            "pxcts": sol.get("pxcts", ""),
+        },
+        preserve_vid=preserve,
+    )
+
+
+def _px_preseed_cookies(http: OutlookHttpSession) -> list[dict[str, str]]:
+    """把 HTTP 注册会话 cookie 预置进浏览器，使 press 与 verify#2 同一 PX 上下文。"""
+    out: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for c in http.session.cookies:
+        name = getattr(c, "name", "") or ""
+        if not name:
+            continue
+        domain = (getattr(c, "domain", "") or "").lower()
+        keep = (
+            name.startswith("_px")
+            or name in ("pxcts", "pxhd", "_pxhd", "amsc", "mkt", "MUID", "fptctx2")
+            or "live.com" in domain
+            or "microsoft" in domain
+            or "hsprotect" in domain
+        )
+        if not keep:
+            continue
+        dom = getattr(c, "domain", "") or ".live.com"
+        dom = dom if dom.startswith(".") else f".{dom.lstrip('.')}"
+        path = getattr(c, "path", None) or "/"
+        key = (name, dom, path)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "name": name,
+            "value": str(getattr(c, "value", "") or ""),
+            "domain": dom,
+            "path": path,
+        })
+    return out
+
+
+def _solve_via_swiftshader(
+    http: OutlookHttpSession,
+    ctx: SignupSession,
+    *,
+    phase: str,
+    proxy: Optional[str],
+    challenge_meta: Optional[dict[str, Any]] = None,
+    stable_vid: str = "",
+) -> dict[str, str]:
+    """自建 SwiftShader 浏览器 + xdotool/CDP 真按，不依赖 captcha.run。"""
+    _px_dir = os.path.join(os.path.dirname(__file__), "..", "px_solver")
+    if _px_dir not in sys.path:
+        sys.path.insert(0, _px_dir)
+    from px_swiftshader_solver import harvest  # noqa: E402
+
+    p = proxy or http.proxy
+    meta = challenge_meta or ctx.px_challenge_meta or {}
+    preseed = _px_preseed_cookies(http)
+    want_press = phase == "press"
+    logger.info(
+        "PX 走 SwiftShader 本地收割 phase=%s proxy=%s preseed=%d",
+        phase, str(p)[:40], len(preseed),
+    )
+
+    if not want_press:
+        px = http.px_cookies()
+        if px.get("px3"):
+            logger.info("SwiftShader silent 复用 HTTP 会话 _px3，跳过独立浏览器收割")
+            return px
+        logger.warning("HTTP 无 _px3，SwiftShader silent 回退浏览器（可能与注册会话脱节）")
+
+    if want_press and meta:
+        challenge_url = build_challenge_iframe_url(ctx, meta)
+        sol = harvest(
+            p,
+            want_press=True,
+            challenge_url=challenge_url,
+            session_id=str(meta.get("sessionId") or meta.get("session_id") or ctx.uaid),
+            vid=str(meta.get("vid", "") or stable_vid),
+            uuid=str(meta.get("uuid", "")),
+            app_id=str(meta.get("appId") or meta.get("app_id") or ""),
+            preseed_cookies=preseed or None,
+            signup_page_url=ctx.signup_page_url,
+        )
+    else:
+        sol = harvest(p, want_press=False, preseed_cookies=preseed or None)
+
+    if not sol.get("px3"):
+        raise RuntimeError(f"SwiftShader 未收割到 _px3 phase={phase}")
+    px3 = sol["px3"]
+    challenge_vid = str(meta.get("vid", "") or stable_vid) if want_press else ""
+    logger.info(
+        "SwiftShader 收割成功 px3=%s... pressed=%s has_1000=%s press_vid_match=%s backend=%s",
+        px3[:30], sol.get("pressed"), ":1000:" in px3,
+        sol.get("press_vid_match_reg"), sol.get("press_backend", ""),
+    )
+    if want_press:
+        if not sol.get("pressed"):
+            allow_silent = os.environ.get("PX_ALLOW_SILENT_PRESS", "").strip().lower() in {
+                "1", "true", "yes",
+            }
+            if not allow_silent:
+                raise RuntimeError(
+                    "SwiftShader press 未成功（pressed=False）；"
+                    "未出现可见 #px-captcha 或按压未生效（:1000: 仅为 PBKDF2 迭代数，非 press 标记）。"
+                    "试 PX_SWIFTSHADER_HEADFUL=1 + PX_OS_PRESS=1，或换 IP 后重试"
+                )
+            logger.warning("PX_ALLOW_SILENT_PRESS=1：pressed=False 仍提交（易 riskBlock）")
+        last_pv = str(sol.get("last_press_vid", ""))
+        if challenge_vid and last_pv and last_pv != challenge_vid:
+            raise RuntimeError(
+                f"SwiftShader press collector vid={last_pv[:24]} != challenge vid={challenge_vid[:24]}"
+            )
+        if challenge_vid and sol.get("press_vid_match_reg") is False and last_pv:
+            raise RuntimeError(
+                f"SwiftShader press_vid 与 challenge 不匹配 challenge={challenge_vid[:24]}"
+            )
+        sr = sol.get("solve_result")
+        strict_sr = os.environ.get("PX_STRICT_SOLVE_RESULT", "1").strip().lower() not in {
+            "0", "false", "no",
+        }
+        if strict_sr and sr is not None and str(sr) not in {"0", "0.0"}:
+            raise RuntimeError(f"SwiftShader press solve_result={sr}（期望 0）")
+    preserve = challenge_vid or stable_vid or str(sol.get("pxvid", "") or "")
+    return http.apply_px_tokens(
+        {
+            "px3": px3,
+            "pxde": sol.get("pxde", ""),
+            "pxvid": sol.get("pxvid", ""),
+            "pxcts": sol.get("pxcts", ""),
+        },
+        preserve_vid=preserve,
+    )
+
+
 def _solve_via_bitbrowser(
     http: OutlookHttpSession,
     *,
@@ -348,7 +619,7 @@ def _solve_via_offcaptcha(
     meta = challenge_meta or ctx.px_challenge_meta or {}
     session_id = _registration_session_id(ctx)
     page_url = ctx.signup_page_url or "https://signup.live.com/"
-    ua = os.environ.get("OFFCAPTCHA_USER_AGENT", "").strip()
+    ua = _offcaptcha_user_agent(http)
 
     if phase == "silent":
         fpt = ctx.human_sensor_url or _registration_iframe_url(ctx)
@@ -408,6 +679,16 @@ def _solve_px_protocol(
     _meta = challenge_meta or ctx.px_challenge_meta
     _vid = str(_meta.get("vid", "")) if phase == "press" else ""
 
+    if solver in {"offcaptcha", "off"}:
+        return _solve_via_offcaptcha(
+            http, ctx, phase=phase, proxy=proxy,
+            challenge_meta=_meta, stable_vid=_vid,
+        )
+    if solver in {"offcaptcha", "off"}:
+        return _solve_via_offcaptcha(
+            http, ctx, phase=phase, proxy=proxy,
+            challenge_meta=_meta, stable_vid=_vid,
+        )
     if solver in {"offcaptcha", "off"}:
         return _solve_via_offcaptcha(
             http, ctx, phase=phase, proxy=proxy,
@@ -501,16 +782,25 @@ def _refresh_press_challenge(
     ctx: SignupSession,
     account: AccountInfo,
     proxy: Optional[str],
+    *,
+    prev_meta: Optional[dict[str, Any]] = None,
 ) -> Optional[tuple[dict[str, Any], str]]:
     """press 打码失败后重新走 risk 链拿全新挑战（旧 uuid/vid 已过期，原地重打必 SESSION_EXPIRED）。"""
-    try:
+    force_fresh = _is_offcaptcha_solver()
+    if force_fresh:
+        clear_px_cookies(http.session)
+
+    def _pull_challenge(*, fresh_silent: bool) -> Optional[tuple[dict[str, Any], str]]:
         risk_initialize(http, ctx, "")
         if not ctx.continuation_token:
             logger.warning("刷新挑战：risk/initialize 未返回 continuationToken")
             return None
         if ctx.human_sensor_url:
             load_human_sensor(http, ctx)
-        px_meta = _acquire_silent_px(http, ctx, mode="solver", proxy=proxy, country=account.country)
+        px_meta = _acquire_silent_px(
+            http, ctx, mode="solver", proxy=proxy, country=account.country,
+            force_fresh=fresh_silent,
+        )
         signature = build_msa_risk_verify_signature(account, ctx)
         resp1 = risk_verify(
             http, ctx,
@@ -530,6 +820,26 @@ def _refresh_press_challenge(
             "刷新挑战成功 uuid=%s vid=%s",
             str(meta.get("uuid", ""))[:24], str(meta.get("vid", ""))[:24],
         )
+        return meta, ctype
+
+    try:
+        out = _pull_challenge(fresh_silent=force_fresh)
+        if not out:
+            return None
+        meta, ctype = out
+        prev_uuid = str((prev_meta or {}).get("uuid", ""))
+        if force_fresh and prev_uuid and str(meta.get("uuid", "")) == prev_uuid:
+            logger.warning(
+                "刷新后 uuid 未变 (%s)，清 px cookie 并重打 silent",
+                prev_uuid[:24],
+            )
+            clear_px_cookies(http.session)
+            out = _pull_challenge(fresh_silent=True)
+            if not out:
+                return None
+            meta, ctype = out
+        if force_fresh:
+            load_challenge_iframe(http, ctx, meta)
         return meta, ctype
     except Exception as exc:
         logger.warning("刷新挑战异常: %s", exc)
@@ -583,7 +893,9 @@ def _protocol_verify2(
                 continue
             # verify #2 没给新挑战且未 continue → 挑战可能已过期，刷新后再打
             if attempt < max_attempts:
-                refreshed = _refresh_press_challenge(http, ctx, account, proxy)
+                refreshed = _refresh_press_challenge(
+                    http, ctx, account, proxy, prev_meta=meta,
+                )
                 if refreshed:
                     meta, challenge_type = refreshed
                     continue
@@ -591,10 +903,12 @@ def _protocol_verify2(
             logger.warning("纯协议 press 打码失败 attempt=%s: %s", attempt, exc)
             # 旧挑战 uuid/vid 已过期（重打必 SESSION_EXPIRED），刷新挑战后再试
             if attempt < max_attempts:
-                refreshed = _refresh_press_challenge(http, ctx, account, proxy)
+                refreshed = _refresh_press_challenge(
+                    http, ctx, account, proxy, prev_meta=meta,
+                )
                 if refreshed:
                     meta, challenge_type = refreshed
-                    time.sleep(1.0)
+                    time.sleep(0.5 if _is_offcaptcha_solver() else 1.0)
                     continue
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 403:
@@ -685,13 +999,17 @@ def solve_risk_challenge(
     challenge_type = challenge.get("challengeType", "HumanCaptcha")
     ctx.px_challenge_meta = challenge_meta
 
-    load_challenge_iframe(http, ctx, challenge_meta)
-    preload_px_challenge_assets(http, ctx, challenge_meta)
-    warmup_px_session(http, ctx)
-    time.sleep(1.0)
-
-    post_px_beacon(http, ctx, tag="pre-press")
-    post_px_bundle(http, ctx, tag="pre-press")
+    if _is_offcaptcha_solver():
+        # OffCaptcha 自建浏览器解 press；协议侧跳过慢速资源预载，尽快提交打码任务
+        load_challenge_iframe(http, ctx, challenge_meta)
+        post_px_beacon(http, ctx, tag="pre-press")
+    else:
+        load_challenge_iframe(http, ctx, challenge_meta)
+        preload_px_challenge_assets(http, ctx, challenge_meta)
+        warmup_px_session(http, ctx)
+        time.sleep(1.0)
+        post_px_beacon(http, ctx, tag="pre-press")
+        post_px_bundle(http, ctx, tag="pre-press")
 
     if _protocol_verify2(
         http, ctx, account,
@@ -700,4 +1018,4 @@ def solve_risk_challenge(
         challenge_type=challenge_type,
     ):
         return
-    raise Verify2Failed("risk/verify #2 未通过（纯协议 captcha.run press）")
+    raise Verify2Failed("risk/verify #2 未通过（PX press 打码未通过）")

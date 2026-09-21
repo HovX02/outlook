@@ -48,7 +48,6 @@ from outlook_api_reg.risk import _acquire_silent_px, _solve_px_protocol, load_hu
 logger = logging.getLogger("rescue_login")
 
 ACCOUNTS_DIR = _ROOT / "accounts"
-DEFAULT_PROXY_TPL = "gate.kookeey.info:1000:8848858-f8632b7f:eaba13a4-US-{sid}"
 
 _ERR = {
     "80041012": "密码错误",
@@ -88,7 +87,9 @@ def _dump(name: str, text: str) -> Path:
 
 
 def _proxy_raw(raw: str) -> str:
-    raw = (raw or "").strip() or DEFAULT_PROXY_TPL
+    raw = (raw or "").strip() or os.environ.get("HTTP_PROXY", "").strip()
+    if not raw:
+        raise SystemExit("缺少代理：请设置 HTTP_PROXY 或传入 --proxy host:port:user:pass")
     return expand_proxy_template(raw, count=1)[0]
 
 
@@ -174,17 +175,13 @@ def _clear_abuse(http: OutlookHttpSession, resp, proxy: str):
         )
     except Exception as exc:  # noqa: BLE001
         logger.debug("PX collector /msft skip: %s", exc)
-    # 纯 HTTP 客户端拿不到 PX 用 JS 写的 _pxvid（collector/iframe 响应不带 Set-Cookie），
-    # warmup 后 pxvid 仍为空 → verify#1 会提交“零 PX 信号”，风控更易直接 block（而非发挑战）。
-    # best-effort 用 captcha.run silent 建一个真实 PX 会话，只取它的 pxvid；px3/pxde 仍按 HAR 留空。
-    px_vid = http.px_cookies().get("pxvid", "")
-    if not px_vid:
-        try:
-            silent = _acquire_silent_px(http, ctx, mode="solver", proxy=proxy, country="US")
-            px_vid = silent.get("pxvid") or http.px_cookies().get("pxvid", "")
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Abuse verify#1 取真实 pxvid 失败，回退空 pxvid: %s", exc)
-    logger.info("Abuse verify#1 pxvid=%s（px3/pxde 留空，仅带真实访客 id）", px_vid[:20] or "-（空）")
+    # 与注册同一套：verify#1 提交 silent _px3/_pxde/_pxvid，才能下发按压挑战而不是直接 riskBlock。
+    silent = _acquire_silent_px(http, ctx, mode="solver", proxy=proxy, country="US")
+    logger.info(
+        "Abuse verify#1 silent pxvid=%s px3=%s",
+        (silent.get("pxvid") or "")[:20],
+        (silent.get("px3") or "")[:16],
+    )
     restore_sig = {
         "puid": str(sd.get("sEncryptedPUID") or ""),
         "siteId": "00000000487A244A",
@@ -197,12 +194,7 @@ def _clear_abuse(http: OutlookHttpSession, resp, proxy: str):
         v1 = risk_verify(
             http, ctx,
             continuation_token=ctx.continuation_token,
-            risk_provider_metadata=[{
-                "riskProvider": "Human",
-                "px3": "",
-                "pxde": "",
-                "pxvid": px_vid,
-            }],
+            risk_provider_metadata=build_px_metadata(silent),
             msa_risk_verify_signature=restore_sig,
             origin=abuse_origin,
         )
@@ -1091,7 +1083,7 @@ def main() -> int:
     parser.add_argument("--file", default="", help="从 invalid 清单批量读 email----pwd----recovery")
     parser.add_argument("--limit", type=int, default=0, help="最多处理 N 个（0=全部）")
     parser.add_argument("--offset", type=int, default=0, help="跳过前 N 个")
-    parser.add_argument("--proxy", default=os.environ.get("HTTP_PROXY") or DEFAULT_PROXY_TPL)
+    parser.add_argument("--proxy", default=os.environ.get("HTTP_PROXY", ""), help="host:port:user:pass 或含 {sid} 模板")
     parser.add_argument("--no-write", action="store_true", help="成功也不回写 accounts")
     parser.add_argument("--skip-done", action="store_true", help="跳过 rescue_results.jsonl 里已成功的号")
     args = parser.parse_args()

@@ -169,10 +169,15 @@ ARKOSE_PUBLIC_KEY = "B7D8911C-5CC8-A9A3-35B0-554ACEE604DA"
 # captcha.run
 CAPTCHA_RUN_API_BASE = "https://apicn.captcha.run"
 CAPTCHA_RUN_API_BASE_GLOBAL = "https://api.captcha-run.com"
-CAPTCHA_RUN_DEVELOPER_ID = "beada0b6-2ebc-4641-9010-35925d709e7f"
+# captcha.run 推荐分成 ID（非 API Key）；留空则不传 developer 字段
+CAPTCHA_RUN_DEVELOPER_ID = _os.environ.get("CAPTCHA_RUN_DEVELOPER_ID", "").strip()
 
 # offcaptcha.com（PX invisible + press-and-hold）
 OFFCAPTCHA_API_BASE = "https://api.offcaptcha.com/v1"
+# softID 为 OffCaptcha 推荐分成 ID（非密钥），默认内置
+OFFCAPTCHA_SOFT_ID = _os.environ.get(
+    "OFFCAPTCHA_SOFT_ID", "641b6196-5a20-4af4-be86-525f768282a3"
+).strip()
 
 # API 路径
 RISK_INITIALIZE_PATH = f"/{MSA_TENANT_ID}/api/v1.0/risk/initialize"
@@ -220,19 +225,202 @@ def signup_url_for_country(country: str) -> str:
     mkt, _lc = locale_for_country(country)
     return f"https://signup.live.com/signup?lic=1&mkt={mkt}"
 
-# exe 支持的邮箱后缀（默认仍用 @outlook.com）
+
+def signup_url_for_country(country: str) -> str:
+    """Microsoft signup URL with explicit ``mkt`` — avoids Uzbek/随机 IP locale。"""
+    mkt, _lc = locale_for_country(country)
+    return f"https://signup.live.com/signup?lic=1&mkt={mkt}"
+
+
+def signup_url_for_country(country: str) -> str:
+    """Microsoft signup URL with explicit ``mkt`` — avoids Uzbek/随机 IP locale。"""
+    mkt, _lc = locale_for_country(country)
+    return f"https://signup.live.com/signup?lic=1&mkt={mkt}"
+
+# Web 注册页国家下拉（ISO2 → 英文名；未在 COUNTRY_LOCALE 的仍可用默认 EN-US locale）
+REGISTRATION_COUNTRY_NAMES: dict[str, str] = {
+    "AE": "United Arab Emirates",
+    "AR": "Argentina",
+    "AT": "Austria",
+    "AU": "Australia",
+    "BE": "Belgium",
+    "BR": "Brazil",
+    "CA": "Canada",
+    "CH": "Switzerland",
+    "CL": "Chile",
+    "CN": "China",
+    "CO": "Colombia",
+    "CZ": "Czechia",
+    "DE": "Germany",
+    "DK": "Denmark",
+    "EG": "Egypt",
+    "ES": "Spain",
+    "FI": "Finland",
+    "FR": "France",
+    "GB": "United Kingdom",
+    "GR": "Greece",
+    "HK": "Hong Kong",
+    "HU": "Hungary",
+    "ID": "Indonesia",
+    "IE": "Ireland",
+    "IL": "Israel",
+    "IN": "India",
+    "IT": "Italy",
+    "JP": "Japan",
+    "KR": "South Korea",
+    "LV": "Latvia",
+    "MX": "Mexico",
+    "MY": "Malaysia",
+    "NL": "Netherlands",
+    "NO": "Norway",
+    "NZ": "New Zealand",
+    "PE": "Peru",
+    "PH": "Philippines",
+    "PL": "Poland",
+    "PT": "Portugal",
+    "RO": "Romania",
+    "RU": "Russia",
+    "SA": "Saudi Arabia",
+    "SE": "Sweden",
+    "SG": "Singapore",
+    "SK": "Slovakia",
+    "TH": "Thailand",
+    "TR": "Turkey",
+    "TW": "Taiwan",
+    "UA": "Ukraine",
+    "US": "United States",
+    "VN": "Vietnam",
+    "ZA": "South Africa",
+}
+
+REGISTRATION_COUNTRY_NAMES_ZH: dict[str, str] = {
+    "AE": "阿联酋",
+    "AR": "阿根廷",
+    "AT": "奥地利",
+    "AU": "澳大利亚",
+    "BE": "比利时",
+    "BR": "巴西",
+    "CA": "加拿大",
+    "CH": "瑞士",
+    "CL": "智利",
+    "CN": "中国",
+    "CO": "哥伦比亚",
+    "CZ": "捷克",
+    "DE": "德国",
+    "DK": "丹麦",
+    "EG": "埃及",
+    "ES": "西班牙",
+    "FI": "芬兰",
+    "FR": "法国",
+    "GB": "英国",
+    "GR": "希腊",
+    "HK": "香港",
+    "HU": "匈牙利",
+    "ID": "印尼",
+    "IE": "爱尔兰",
+    "IL": "以色列",
+    "IN": "印度",
+    "IT": "意大利",
+    "JP": "日本",
+    "KR": "韩国",
+    "LV": "拉脱维亚",
+    "MX": "墨西哥",
+    "MY": "马来西亚",
+    "NL": "荷兰",
+    "NO": "挪威",
+    "NZ": "新西兰",
+    "PE": "秘鲁",
+    "PH": "菲律宾",
+    "PL": "波兰",
+    "PT": "葡萄牙",
+    "RO": "罗马尼亚",
+    "RU": "俄罗斯",
+    "SA": "沙特",
+    "SE": "瑞典",
+    "SG": "新加坡",
+    "SK": "斯洛伐克",
+    "TH": "泰国",
+    "TR": "土耳其",
+    "TW": "台湾",
+    "UA": "乌克兰",
+    "US": "美国",
+    "VN": "越南",
+    "ZA": "南非",
+}
+
+# Microsoft 官方支持的 Outlook 国家后缀 + 通用域（共 34 项，见 signup 各国入口）
 OUTLOOK_EMAIL_DOMAINS = [
     "@outlook.com",
     "@hotmail.com",
+    "@outlook.com.ar",
     "@outlook.com.au",
-    "@outlook.de",
-    "@outlook.jp",
-    "@outlook.fr",
-    "@outlook.co.uk",
-    "@outlook.it",
-    "@outlook.es",
-    "@outlook.kr",
-    "@outlook.in",
-    "@outlook.sg",
+    "@outlook.at",
+    "@outlook.be",
     "@outlook.com.br",
+    "@outlook.cl",
+    "@outlook.cz",
+    "@outlook.dk",
+    "@outlook.fr",
+    "@outlook.de",
+    "@outlook.com.gr",
+    "@outlook.co.il",
+    "@outlook.in",
+    "@outlook.co.id",
+    "@outlook.ie",
+    "@outlook.it",
+    "@outlook.hu",
+    "@outlook.jp",
+    "@outlook.kr",
+    "@outlook.lv",
+    "@outlook.my",
+    "@outlook.co.nz",
+    "@outlook.com.pe",
+    "@outlook.ph",
+    "@outlook.pt",
+    "@outlook.sa",
+    "@outlook.sg",
+    "@outlook.sk",
+    "@outlook.es",
+    "@outlook.co.th",
+    "@outlook.com.tr",
+    "@outlook.co.uk",
+    "@outlook.com.vn",
 ]
+
+OUTLOOK_EMAIL_DOMAIN_LABELS: dict[str, str] = {
+    "@outlook.com": "Outlook 国际",
+    "@hotmail.com": "Hotmail 国际",
+    "@outlook.com.ar": "阿根廷",
+    "@outlook.com.au": "澳大利亚",
+    "@outlook.at": "奥地利",
+    "@outlook.be": "比利时",
+    "@outlook.com.br": "巴西",
+    "@outlook.cl": "智利",
+    "@outlook.cz": "捷克",
+    "@outlook.dk": "丹麦",
+    "@outlook.fr": "法国",
+    "@outlook.de": "德国",
+    "@outlook.com.gr": "希腊",
+    "@outlook.co.il": "以色列",
+    "@outlook.in": "印度",
+    "@outlook.co.id": "印尼",
+    "@outlook.ie": "爱尔兰",
+    "@outlook.it": "意大利",
+    "@outlook.hu": "匈牙利",
+    "@outlook.jp": "日本",
+    "@outlook.kr": "韩国",
+    "@outlook.lv": "拉脱维亚",
+    "@outlook.my": "马来西亚",
+    "@outlook.co.nz": "新西兰",
+    "@outlook.com.pe": "秘鲁",
+    "@outlook.ph": "菲律宾",
+    "@outlook.pt": "葡萄牙",
+    "@outlook.sa": "沙特",
+    "@outlook.sg": "新加坡",
+    "@outlook.sk": "斯洛伐克",
+    "@outlook.es": "西班牙",
+    "@outlook.co.th": "泰国",
+    "@outlook.com.tr": "土耳其",
+    "@outlook.co.uk": "英国",
+    "@outlook.com.vn": "越南",
+}

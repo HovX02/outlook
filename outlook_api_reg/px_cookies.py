@@ -12,6 +12,16 @@ def cookie_map(session: requests.Session) -> dict[str, str]:
     return {c.name: c.value for c in session.cookies}
 
 
+_PX_COOKIE_NAMES = frozenset({"_px3", "_pxde", "_pxvid", "pxcts", "_pxhd", "pxhd"})
+
+
+def clear_px_cookies(session: requests.Session) -> None:
+    """清除 session 内 PX 相关 cookie，便于 offcaptcha 刷新挑战时重打 silent。"""
+    for cookie in list(session.cookies):
+        if cookie.name in _PX_COOKIE_NAMES:
+            session.cookies.clear(cookie.domain, cookie.path, cookie.name)
+
+
 def get_px_cookies(session: requests.Session) -> dict[str, str]:
     m = cookie_map(session)
     return {

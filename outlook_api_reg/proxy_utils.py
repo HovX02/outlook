@@ -264,7 +264,7 @@ def random_sid(length: int = 8) -> str:
 def expand_proxy_template(raw: str, *, count: int = 1) -> list[str]:
     """把含 `{sid}` 的代理模板展开成 count 条随机 sticky 会话。
 
-    例：us.rapidproxy.io:5001:kevin2739-residential-US-session-{sid}-stime-10:pass
+    例：gate.example.com:5001:myuser-residential-US-session-{sid}-stime-10:mypass
     每条用不同随机 sid → 分到不同住宅 IP。无 `{sid}` 则原样返回一条。
     """
     raw = (raw or "").strip()
@@ -345,9 +345,12 @@ def proxy_for_captcha_run(
     exe 26.7.11 同款 captcha.run 代理字段（扁平 JSON，非 URL 字符串）。
     字符串还原自 VMProtect exe 中 `login/password/port/host/uuid/vid` 片段。
     """
+    from .constants import CAPTCHA_RUN_DEVELOPER_ID
+
     cfg = parse_proxy(proxy)
+    dev = (developer or CAPTCHA_RUN_DEVELOPER_ID or "").strip()
     payload: dict[str, Any] = {
-        "developer": developer or "beada0b6-2ebc-4641-9010-35925d709e7f",
+        **({"developer": dev} if dev else {}),
         "country": country,
         "timezone": timezone,
         "uuid": uuid,

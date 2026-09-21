@@ -1,57 +1,116 @@
 # ═══════════════════════════════════════════════════════
-# 敏感配置（含 captcha key、代理密码、CF Worker token）
+# 敏感配置（API Key、代理密码、CF Worker token、Roxy token 等）
 # ═══════════════════════════════════════════════════════
 .env
-*.env
+.env.*
 !.env.example
+*.env
+!*.env.example
+
+# 本地密钥 / 证书（venv 内 cacert 已由 .venv/ 排除）
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa
+id_rsa.*
+*.keystore
 
 # ═══════════════════════════════════════════════════════
-# 生成的账号数据（含 email/password/refresh_token，敏感）
+# 账号与业务数据（email / password / refresh_token / combo）
 # ═══════════════════════════════════════════════════════
 accounts/
-*.txt.bak
-accounts_recovery.txt
+data/
+*.jsonl
+
+*_results.json
+batch_*.json
+batch_verify*.json
+usable_combos.txt
+invalid_*.txt
+accounts*.txt
+accounts_*.txt
+!accounts*.example.txt
+
+recovery_pool.txt
+*_pool.txt
+!recovery_pool.example.txt
+!*_pool.example.txt
 
 # ═══════════════════════════════════════════════════════
-# 运行日志（含 token、调试输出）
+# 数据库（SQLite 含账号、代理、打码 Key 设置、批次）
 # ═══════════════════════════════════════════════════════
-logs/
-*.log
-*.out
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-journal
 
 # ═══════════════════════════════════════════════════════
-# 调试产物（截图 / 页面 dump / HTML 快照）
+# 代理清单（明文 host:port:user:pass）
 # ═══════════════════════════════════════════════════════
+proxies*.txt
+proxy*.txt
+!proxies*.example.txt
+!proxy*.example.txt
+
+# ═══════════════════════════════════════════════════════
+# Cookie / Session / 抓包 / 调试产物
+# ═══════════════════════════════════════════════════════
+cookies/
+*.cookies
+*.har
+captures/
 debug_browser_oauth/
 debug_oauth/
 debug_rescue_shots/
+/tmp/
+offcaptcha*.json
+*_sol.json
+
 *.png
+*.jpg
+*.jpeg
+*.webp
+*.html.bak
 *.json.bak
 
-# 例外：保留 docs / webapp/static / README 截图
 !webapp/static/index.html
 !docs/
 !assets/screenshots/
 !assets/screenshots/**
 
 # ═══════════════════════════════════════════════════════
-# 数据库（含账号、代理、批次数据）
+# 运行日志（可能含 token / 代理 / 邮箱）
 # ═══════════════════════════════════════════════════════
-*.db
-*.db-wal
-*.db-shm
-*.sqlite
-*.sqlite3
+logs/
+*.log
+reg_*.log
+run_*.log
+run_ss*.log
+*.out
+px_solver/*.log
+px_solver/*.out
 
 # ═══════════════════════════════════════════════════════
-# 抓包文件
+# Docker / 本地部署覆盖
 # ═══════════════════════════════════════════════════════
-*.har
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.*.local.yml
 
 # ═══════════════════════════════════════════════════════
-# 不发布的模块（Google 注册脚手架，未完成，暂不发布）
+# 不发布的模块
 # ═══════════════════════════════════════════════════════
 google_reg/
+
+# 本地调试脚本（含个人代理 / Roxy profile，不发布）
+scripts/roxy_unban_capture.py
+scripts/chrome_offcaptcha_press_watch.py
 
 # ═══════════════════════════════════════════════════════
 # Python
@@ -64,12 +123,10 @@ dist/
 build/
 .eggs/
 
-# 虚拟环境
 .venv/
 venv/
 env/
 
-# 类型检查 / 测试缓存
 .mypy_cache/
 .pytest_cache/
 .tox/
@@ -83,29 +140,28 @@ htmlcov/
 node_modules/
 px_solver/node_modules/
 
-# 抓取的 PerimeterX 脚本（版权内容 + 大文件，可按需重新拉取）
 px_solver/captcha.js
 px_solver/main.min.js
 px_solver/iframe_index.html
 px_solver/live_*.js
 
 # ═══════════════════════════════════════════════════════
-# IDE / 系统
+# IDE / 系统 / 工具缓存
 # ═══════════════════════════════════════════════════════
 .DS_Store
 .idea/
 .vscode/
+.cursor/
+.windsurf/
+.kiro/
 *.swp
 *.swo
 *~
 .ace-tool/
-
-# 代理清单含明文账密，禁止入库（proxies_ipwo.txt 等此前仅靠"未 add"侥幸未泄露）
-proxies*.txt
-!proxies*.example.txt
-
-# local tool caches / backups
 .kiro/
+*.bak
 *.bak*
-*.log
 
+.netrc
+.npmrc
+.pypirc

@@ -31,7 +31,7 @@ EXE_API_MARKERS = [
     '{"captchaType": "PxCaptcha2","uaid": "',
     'response.pressToken[\'_px3\']',
     'response.silentToken.pxcts',
-    '"developer":"beada0b6-2ebc-4641-9010-35925d709e7f"',
+    '"developer":"<CAPTCHA_RUN_DEVELOPER_ID>"',
     '"country":"US","timezone":"America/New_York"',
     ',"login": "',
     '","password": "',

@@ -60,7 +60,11 @@ def main() -> int:
         "port": port,
         "login": user,
         "password": pw,
-        "developer": "beada0b6-2ebc-4641-9010-35925d709e7f",
+        **(
+            {"developer": dev}
+            if (dev := os.environ.get("CAPTCHA_RUN_DEVELOPER_ID", "").strip())
+            else {}
+        ),
     }
     print("POST /v2/tasks/  payload:")
     print(json.dumps(payload, ensure_ascii=False, indent=2))

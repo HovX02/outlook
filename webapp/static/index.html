@@ -49,7 +49,10 @@
     font-size:13px; font-weight:500; cursor:pointer; border:0; background:transparent; width:100%; text-align:left; margin-bottom:2px; }
   .nav:hover { background:var(--bg-hover); color:var(--fg); }
   .nav.active { background:var(--brand-soft); color:var(--brand-hover); font-weight:600; }
-  .nav .ic { width:16px; text-align:center; opacity:.9; }
+  .nav .ic { width:16px; height:16px; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--fg-4); }
+  .nav:hover .ic { color:var(--fg-2); }
+  .nav.active .ic { color:var(--brand-hover); }
+  .nav .ic svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .nav .count { margin-left:auto; font-size:11px; font-family:var(--font-mono); color:var(--fg-4); }
   .nav.active .count { color:var(--brand-hover); }
   .sb-foot { margin-top:auto; border-top:1px solid var(--border); padding:12px 14px; font-size:11.5px; color:var(--fg-3); display:flex; flex-direction:column; gap:6px; }
@@ -62,9 +65,11 @@
   .topbar .sub { color:var(--fg-3); font-size:12.5px; }
   .topbar .right { margin-left:auto; display:flex; gap:8px; align-items:center; }
   .content { flex:1; min-height:0; overflow:hidden; padding:16px; display:flex; flex-direction:column; }
-  .section { display:none; flex:1; min-height:0; overflow:auto; }
-  .section.active { display:block; }
-  .section.fill.active { display:flex; flex-direction:column; overflow:hidden; }
+  .content > .section.active { flex:1; min-height:0; }
+  .content > .section.active { flex:1; min-height:0; }
+  .section { display:none !important; flex:1; min-height:0; overflow:auto; }
+  .section.active { display:block !important; }
+  .section.fill.active { display:flex !important; flex-direction:column; overflow:hidden; }
 
   .btn, .pool-btn { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 12px; border:1px solid var(--border);
     background:var(--bg-card); color:var(--fg-2); font-size:13px; font-weight:500; border-radius:var(--r-sm); cursor:pointer; white-space:nowrap; }
@@ -131,46 +136,184 @@
     color:var(--fg-3); font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .register-params-grid .field.span-2 { grid-column:1 / -1; }
+
+
   .register-params-grid .field input,
   .register-params-grid .field select { width:100%; min-height:38px; }
   .register-inline-hint { margin:0 16px 14px; font-size:12px; color:var(--fg-4); line-height:1.5; }
+
+  /* account_manager 注册中心（不可单独设 display，否则会盖住 .section 隐藏） */
+  .section.fill.register-page.active {
+    display:flex !important; flex-direction:column; min-height:0; flex:1; overflow:hidden; background:transparent;
+  }
+  .register-page-top { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; flex-shrink:0; padding:0 0 14px; border-bottom:1px solid var(--border-subtle); }
+  .register-page-top-main { display:flex; align-items:center; flex-wrap:wrap; gap:14px 18px; }
+  .register-page-top-main h1 { margin:0; font-size:20px; font-weight:700; }
+  .register-page-top-actions { display:flex; align-items:center; gap:10px; }
+  .register-start-btn-top { min-height:36px; padding:0 16px; }
+  .register-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .register-toolbar-select-wrap { position:relative; }
+  .register-toolbar-select { appearance:none; min-width:148px; min-height:34px; padding:6px 28px 6px 10px; font-size:13px; font-weight:600; border:1px solid var(--border); border-radius:8px; background:var(--bg-pane); color:var(--fg); cursor:pointer; }
+  .register-toolbar-select:focus { border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-ring); }
+  .register-toolbar-status { font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px; }
+  .register-toolbar-status.ok { color:var(--brand-hover); background:var(--brand-soft); }
+  .register-toolbar-status.warn { color:var(--warn); background:var(--warn-bg); }
+  .register-mode-field { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color:var(--fg-2); }
+  .register-mode-field > span { white-space:nowrap; }
+  .register-section-head-tight { padding:12px 16px 0; margin-bottom:8px; }
+  .register-resource-selects { padding:0 16px 14px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 14px; }
+  .register-resource-field { min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:color-mix(in srgb,var(--bg-pane) 50%,transparent); }
+  .register-resource-field-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; font-weight:600; color:var(--fg-2); margin-bottom:6px; }
+  .register-resource-status { font-size:10px; font-weight:600; padding:1px 8px; border-radius:999px; }
+  .register-resource-status.ok { color:var(--brand-hover); background:var(--brand-soft); }
+  .register-resource-status.warn { color:var(--warn); background:var(--warn-bg); }
+  .register-resource-select { width:100%; min-height:38px; }
+  .register-chip { font-size:11px; font-weight:600; padding:2px 9px; border-radius:999px; color:var(--fg-3); background:var(--chip-bg); }
+  .register-chip.on { color:var(--brand-hover); background:var(--brand-soft); }
+  .main.register-mode .topbar { display:none; }
+  .content.register-mode { padding-top:12px; }
+
+  /* account_manager 打码 Provider 卡片 */
+  .pool-page.provider-page { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-sm); overflow:hidden; }
+  .pool-header.provider-page-header { padding:16px 18px 0; border-bottom:1px solid var(--border-subtle); background:var(--bg-card); }
+  .pool-header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .pool-title-block h1 { margin:0 0 6px; font-size:18px; font-weight:700; }
+  .pool-title-block p { margin:0 0 12px; font-size:12.5px; color:var(--fg-3); line-height:1.5; }
+  .provider-page-scroll { padding:16px 18px 24px; }
+  .provider-section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg-pane); margin-bottom:14px; }
+  .provider-section-head h2 { margin:0; font-size:15px; font-weight:700; }
+  .provider-section-head p { margin:4px 0 0; font-size:12px; color:var(--fg-3); }
+  .provider-card-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; min-height:0; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg-card); margin-bottom:6px; flex-wrap:wrap; }
+  .provider-card-main { min-width:0; flex:1; line-height:1.35; }
+  .provider-card-title { font-size:13px; font-weight:650; margin:0 0 2px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .provider-card-sub { font-size:11.5px; color:var(--fg-3); margin:0; }
+  .provider-card-meta { font-family:var(--font-mono); color:var(--fg-4); }
+  .provider-card-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap; }
+  .table-action-btn { height:30px; padding:0 12px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg-card); color:var(--fg-2); font-size:12px; font-weight:600; cursor:pointer; }
+  .table-action-btn:hover:not(:disabled) { border-color:var(--brand); color:var(--brand-hover); }
+  .table-action-btn:disabled { opacity:.45; cursor:not-allowed; }
+  .dialog-backdrop { position:fixed; inset:0; background:rgba(15,15,15,.35); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px; }
+  .dialog-panel-sm { width:min(400px,100%); background:var(--bg-card); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow-lg); padding:16px 18px; }
+  .dialog-panel-sm h3 { margin:0 0 12px; font-size:15px; font-weight:700; }
+  .dialog-panel-sm .field { margin:0; }
+  .dialog-panel-sm .field > span { display:block; margin-bottom:6px; font-size:12px; font-weight:600; color:var(--fg-3); }
+  .dialog-current-key { margin:0 0 10px; padding:8px 10px; border-radius:8px; background:var(--bg-pane); border:1px solid var(--border-subtle); font-size:12px; color:var(--fg-2); line-height:1.45; }
+  .dialog-current-key .mono { font-family:var(--font-mono); color:var(--fg); font-weight:600; }
+  .dialog-panel-sm input[readonly].key-masked { background:var(--bg-pane); color:var(--fg); font-family:var(--font-mono); font-size:12.5px; cursor:default; }
+  .secret-input-wrap { position:relative; display:flex; align-items:center; }
+  .secret-input-wrap input { padding-right:40px; min-height:36px; }
+  .secret-eye-btn { position:absolute; right:4px; top:50%; transform:translateY(-50%); width:32px; height:32px; border:0; background:transparent; color:var(--fg-3); cursor:pointer; border-radius:6px; display:grid; place-items:center; font-size:15px; line-height:1; }
+  .secret-eye-btn:hover { background:var(--bg-hover); color:var(--fg); }
+  .dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+
+  /* account_manager 注册中心（不可单独设 display，否则会盖住 .section 隐藏） */
+  .section.fill.register-page.active {
+    display:flex !important; flex-direction:column; min-height:0; flex:1; overflow:hidden; background:transparent;
+  }
+  .register-page-top { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; flex-shrink:0; padding:0 0 14px; border-bottom:1px solid var(--border-subtle); }
+  .register-page-top-main { display:flex; align-items:center; flex-wrap:wrap; gap:14px 18px; }
+  .register-page-top-main h1 { margin:0; font-size:20px; font-weight:700; }
+  .register-page-top-actions { display:flex; align-items:center; gap:10px; }
+  .register-start-btn-top { min-height:36px; padding:0 16px; }
+  .register-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .register-toolbar-select-wrap { position:relative; }
+  .register-toolbar-select { appearance:none; min-width:148px; min-height:34px; padding:6px 28px 6px 10px; font-size:13px; font-weight:600; border:1px solid var(--border); border-radius:8px; background:var(--bg-pane); color:var(--fg); cursor:pointer; }
+  .register-toolbar-select:focus { border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-ring); }
+  .register-toolbar-status { font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px; }
+  .register-toolbar-status.ok { color:var(--brand-hover); background:var(--brand-soft); }
+  .register-toolbar-status.warn { color:var(--warn); background:var(--warn-bg); }
+  .register-mode-field { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color:var(--fg-2); }
+  .register-mode-field > span { white-space:nowrap; }
+  .register-section-head-tight { padding:12px 16px 0; margin-bottom:8px; }
+  .register-resource-selects { padding:0 16px 14px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 14px; }
+  .register-resource-field { min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:color-mix(in srgb,var(--bg-pane) 50%,transparent); }
+  .register-resource-field-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; font-weight:600; color:var(--fg-2); margin-bottom:6px; }
+  .register-resource-status { font-size:10px; font-weight:600; padding:1px 8px; border-radius:999px; }
+  .register-resource-status.ok { color:var(--brand-hover); background:var(--brand-soft); }
+  .register-resource-status.warn { color:var(--warn); background:var(--warn-bg); }
+  .register-resource-select { width:100%; min-height:38px; }
+  .register-chip { font-size:11px; font-weight:600; padding:2px 9px; border-radius:999px; color:var(--fg-3); background:var(--chip-bg); }
+  .register-chip.on { color:var(--brand-hover); background:var(--brand-soft); }
+  .main.register-mode .topbar { display:none; }
+  .content.register-mode { padding-top:12px; }
+
+  /* account_manager 打码 Provider 卡片 */
+  .pool-page.provider-page { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-sm); overflow:hidden; }
+  .pool-header.provider-page-header { padding:16px 18px 0; border-bottom:1px solid var(--border-subtle); background:var(--bg-card); }
+  .pool-header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .pool-title-block h1 { margin:0 0 6px; font-size:18px; font-weight:700; }
+  .pool-title-block p { margin:0 0 12px; font-size:12.5px; color:var(--fg-3); line-height:1.5; }
+  .provider-page-scroll { padding:16px 18px 24px; }
+  .provider-section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg-pane); margin-bottom:14px; }
+  .provider-section-head h2 { margin:0; font-size:15px; font-weight:700; }
+  .provider-section-head p { margin:4px 0 0; font-size:12px; color:var(--fg-3); }
+  .provider-card-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; min-height:0; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg-card); margin-bottom:6px; flex-wrap:wrap; }
+  .provider-card-main { min-width:0; flex:1; line-height:1.35; }
+  .provider-card-title { font-size:13px; font-weight:650; margin:0 0 2px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .provider-card-sub { font-size:11.5px; color:var(--fg-3); margin:0; }
+  .provider-card-meta { font-family:var(--font-mono); color:var(--fg-4); }
+  .provider-card-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap; }
+  .table-action-btn { height:30px; padding:0 12px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg-card); color:var(--fg-2); font-size:12px; font-weight:600; cursor:pointer; }
+  .table-action-btn:hover:not(:disabled) { border-color:var(--brand); color:var(--brand-hover); }
+  .table-action-btn:disabled { opacity:.45; cursor:not-allowed; }
+  .dialog-backdrop { position:fixed; inset:0; background:rgba(15,15,15,.35); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px; }
+  .dialog-panel-sm { width:min(400px,100%); background:var(--bg-card); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow-lg); padding:16px 18px; }
+  .dialog-panel-sm h3 { margin:0 0 12px; font-size:15px; font-weight:700; }
+  .dialog-panel-sm .field { margin:0; }
+  .dialog-panel-sm .field > span { display:block; margin-bottom:6px; font-size:12px; font-weight:600; color:var(--fg-3); }
+  .dialog-current-key { margin:0 0 10px; padding:8px 10px; border-radius:8px; background:var(--bg-pane); border:1px solid var(--border-subtle); font-size:12px; color:var(--fg-2); line-height:1.45; }
+  .dialog-current-key .mono { font-family:var(--font-mono); color:var(--fg); font-weight:600; }
+  .dialog-panel-sm input[readonly].key-masked { background:var(--bg-pane); color:var(--fg); font-family:var(--font-mono); font-size:12.5px; cursor:default; }
+  .secret-input-wrap { position:relative; display:flex; align-items:center; }
+  .secret-input-wrap input { padding-right:40px; min-height:36px; }
+  .secret-eye-btn { position:absolute; right:4px; top:50%; transform:translateY(-50%); width:32px; height:32px; border:0; background:transparent; color:var(--fg-3); cursor:pointer; border-radius:6px; display:grid; place-items:center; font-size:15px; line-height:1; }
+  .secret-eye-btn:hover { background:var(--bg-hover); color:var(--fg); }
+  .dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
   .register-mode-toggle { display:inline-flex; align-items:center; gap:8px; margin:0 16px 14px; font-size:13px; font-weight:600; color:var(--fg-2); cursor:pointer; }
   .register-mode-toggle input { width:16px; height:16px; accent-color:var(--brand); }
 
   .register-log-head {
-    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    display:flex; flex-direction:column; gap:8px;
     padding:10px 14px; border-bottom:1px solid var(--border); background:var(--bg-pane); flex-shrink:0;
   }
-  .register-log-head strong { font-size:13px; }
-  .register-batch-stats { display:flex; gap:12px; font-size:12px; color:var(--fg-3); font-variant-numeric:tabular-nums; }
-  .register-batch-stats b { color:var(--fg); }
-  .register-log-live { font-size:12px; font-weight:500; color:var(--brand-hover); }
+  .register-log-title-row { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
+  .register-log-head strong { font-size:13px; font-weight:650; color:var(--fg); flex-shrink:0; }
+  .register-log-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0; }
+  .register-log-stats {
+    font-size:12px; font-weight:500; color:var(--brand-hover); font-variant-numeric:tabular-nums;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .register-batch-stats { display:inline-flex; align-items:center; gap:10px; font-size:12px; color:var(--fg-3); font-variant-numeric:tabular-nums; flex-wrap:wrap; }
+  .register-batch-stats b { color:var(--fg); font-weight:600; }
+  .register-log-live { font-size:12px; font-weight:500; color:var(--brand-hover); white-space:nowrap; }
   .register-log-panel {
-    max-height: calc(100vh - 120px);
+    display:flex; flex-direction:column; min-height:0; flex:1;
+    max-height:calc(100vh - 132px); overflow:hidden;
   }
-  .register-log-head-main {
-    display:flex; flex-direction:column; gap:4px; min-width:0;
-  }
-  .register-log-head-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .register-log-head-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto; }
   .register-log-copy-btn {
-    border:1px solid var(--border); background:var(--bg-pane); color:var(--fg-3);
-    border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer;
+    display:inline-flex; align-items:center; border:1px solid var(--border); background:var(--bg-card); color:var(--fg-3);
+    border-radius:6px; padding:3px 9px; font-size:12px; font-weight:500; cursor:pointer;
   }
   .register-log-copy-btn:hover { border-color:var(--brand); color:var(--brand-hover); }
   .register-log-empty {
-    margin:0; padding:12px 0; font-size:13px; color:var(--fg-4); line-height:1.55;
+    margin:0; padding:4px 0; font-size:13px; color:var(--fg-4); line-height:1.55;
   }
-  .progress-section { flex:0 0 auto; border-top:1px solid var(--border); background:var(--bg-pane); }
-  .progress-section .register-log-head { border-bottom:1px solid var(--border-subtle); }
-  .progress-wrap { flex:0 0 auto; max-height:min(28vh, 220px); min-height:100px; overflow:auto; }
-  .register-log-body { flex:1; min-height:min(42vh, 360px); overflow:auto; display:flex; flex-direction:column; }
-  .console {
-    height:100%; min-height:140px; padding:10px 14px; overflow-y:auto;
-    font-family:var(--font-mono); font-size:12px; line-height:1.7; white-space:pre-wrap; word-break:break-all;
-    background:var(--bg-card); color:var(--fg-2);
+  .register-log-body {
+    flex:1; min-height:0; overflow:auto; padding:10px 14px 14px;
+    background:var(--bg-card);
+    font-family:var(--font-mono); font-size:12.5px; line-height:1.65;
   }
-  .console .l-INFO { color:var(--fg-2); } .console .l-ERROR { color:var(--danger); } .console .l-WARNING { color:var(--warn); }
-  .console .ts { color:var(--fg-4); margin-right:6px; }
+  .console { min-height:120px; }
+  .register-log-line {
+    margin:0; padding:2px 0; display:flex; gap:8px; align-items:flex-start;
+    color:var(--fg-2); word-break:break-word; overflow-wrap:anywhere;
+  }
+  .register-log-line.l-ERROR { color:var(--danger); }
+  .register-log-line.l-WARNING { color:var(--warn); }
+  .register-log-time { flex:0 0 auto; color:var(--fg-4); font-size:11.5px; white-space:nowrap; user-select:none; }
+  .register-log-msg { flex:1; min-width:0; white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; }
+  .register-log-summary { margin-top:10px; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.55; }
 
   /* 账号池：工具栏 + 表 */
   .pool-page {
@@ -192,12 +335,14 @@
   #sec-proxies .stats { flex-shrink:0; padding:14px 14px 0; margin-bottom:0; }
   #sec-proxies .pool-cockpit-toolbar { flex-shrink:0; margin:0 14px 10px; border:1px solid var(--border-subtle); border-radius:8px; }
   #sec-proxy-stats.active {
-    display:flex; flex-direction:column; min-height:0; overflow:hidden;
+    display:flex !important; flex-direction:column; min-height:0; overflow:hidden;
   }
   #sec-proxy-stats .stats-page {
-    flex:1; min-height:0; overflow-y:auto; padding-bottom:16px;
+    flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding-bottom:16px;
+    -webkit-overflow-scrolling:touch;
   }
-  #sec-proxy-stats .stats { padding:0 0 12px; margin-bottom:0; }
+  #sec-proxy-stats .stats { padding:0 0 12px; margin-bottom:0; flex-shrink:0; }
+  #sec-proxy-stats .tbl-wrap { max-height:min(42vh, 420px); overflow:auto; }
   .proxy-chart-wrap {
     margin:0 0 12px; padding:16px 18px 12px;
     background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
@@ -289,7 +434,7 @@
   .tag { display:inline-flex; align-items:center; font-size:10px; padding:1px 6px; border-radius:4px;
     background:var(--chip-bg); color:var(--fg-2); border:1px solid var(--border); margin-right:3px; }
 
-  .st { font-size:10.5px; padding:2px 8px; border-radius:999px; font-weight:600; white-space:nowrap; }
+  .st { font-size:10px; padding:2px 8px; border-radius:999px; font-weight:700; white-space:nowrap; letter-spacing:.04em; text-transform:uppercase; }
   .st.wait { background:var(--neutral-bg); color:var(--fg-3); }
   .st.run { background:var(--info-bg); color:var(--info); }
   .st.ok { background:var(--success-bg); color:var(--success); }
@@ -325,9 +470,9 @@
   .msgbox.err { background:var(--danger-bg); border:1px solid var(--danger-border); color:var(--danger); }
   .msgbox.warn { background:var(--warn-bg); border:1px solid var(--warn-border); color:var(--warn); }
 
-  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--fg); color:#fff;
+  .toast { position:fixed; top:72px; left:50%; transform:translateX(-50%); background:var(--fg); color:#fff;
     border:0; padding:10px 18px; border-radius:10px; font-size:13px; opacity:0;
-    transition:.25s; pointer-events:none; z-index:100; box-shadow:var(--shadow-md); }
+    transition:.25s; pointer-events:none; z-index:2000; box-shadow:var(--shadow-md); max-width:min(420px,calc(100vw - 32px)); text-align:center; }
   .toast.show { opacity:1; }
 
   .modal-bg { position:fixed; inset:0; background:rgba(15,23,42,.35); backdrop-filter:blur(3px); display:none;
@@ -377,13 +522,14 @@
     </div>
     <div class="sb-group">
       <div class="sb-title">工作台</div>
-      <button class="nav active" data-sec="overview"><span class="ic">▤</span> 概览</button>
-      <button class="nav" data-sec="register"><span class="ic">✦</span> 批次注册</button>
-      <button class="nav" data-sec="proxies"><span class="ic">⇄</span> 代理池 <span class="count" id="navProxyCount">0</span></button>
-      <button class="nav" data-sec="proxy-stats"><span class="ic">◔</span> 代理统计</button>
-      <button class="nav" data-sec="pool"><span class="ic">▦</span> 账号池 <span class="count" id="navPoolCount">0</span></button>
-      <button class="nav" data-sec="verify"><span class="ic">◈</span> 测活</button>
-      <button class="nav" data-sec="ops"><span class="ic">◐</span> IMAP / 保活</button>
+      <button class="nav active" data-sec="overview"><span class="ic" data-icon="dashboard"></span> 概览</button>
+      <button class="nav" data-sec="register"><span class="ic" data-icon="play"></span> 注册中心</button>
+      <button class="nav" data-sec="captcha"><span class="ic" data-icon="smartphone"></span> 打码平台</button>
+      <button class="nav" data-sec="proxies"><span class="ic" data-icon="globe"></span> 代理池 <span class="count" id="navProxyCount">0</span></button>
+      <button class="nav" data-sec="proxy-stats"><span class="ic" data-icon="chart"></span> 代理统计</button>
+      <button class="nav" data-sec="pool"><span class="ic" data-icon="users"></span> 账号池 <span class="count" id="navPoolCount">0</span></button>
+      <button class="nav" data-sec="verify"><span class="ic" data-icon="shield"></span> 测活</button>
+      <button class="nav" data-sec="ops"><span class="ic" data-icon="refresh"></span> IMAP / 保活</button>
     </div>
     <div class="sb-foot">
       <div><span class="dot off" id="footDot"></span><span id="footHealth">检测中…</span></div>
@@ -392,7 +538,7 @@
   </aside>
 
   <div class="main">
-    <div class="topbar">
+    <div class="topbar" id="mainTopbar">
       <h1 id="pageTitle">概览</h1>
       <span class="sub" id="pageSub">账号与批次总览</span>
       <div class="right">
@@ -414,85 +560,127 @@
         </div>
       </section>
 
-      <section class="section fill" id="sec-register">
+      <section class="section fill register-page" id="sec-register">
+        <header class="register-page-top">
+          <div class="register-page-top-main">
+            <h1>注册中心</h1>
+            <div class="register-toolbar">
+              <label class="register-mode-field">
+                <span>注册方式</span>
+                <div class="register-toolbar-select-wrap">
+                  <select id="executionRoute" class="register-toolbar-select register-mode-select"></select>
+                </div>
+              </label>
+              <span class="register-toolbar-status ok" id="registerReadyStatus">检测中…</span>
+            </div>
+          </div>
+          <div class="register-page-top-actions">
+            <button type="button" class="btn ghost sm" id="registerPageRefresh">刷新</button>
+            <button type="button" class="btn sm" id="stopBtn" style="display:none;">停止任务</button>
+            <button class="btn primary register-start-btn-top" id="startBtn">开始注册</button>
+          </div>
+        </header>
+        <p class="hint" id="executionRouteHint" style="margin:10px 0 0;padding:0;"></p>
         <div class="register-page-layout">
           <section class="register-panel">
             <div class="register-panel-scroll">
               <div class="register-block">
-                <div class="register-section-head">
+                <div class="register-section-head register-section-head-tight">
                   <h3>注册资源</h3>
-                  <span class="register-section-meta">代理与打码，保存在本机</span>
+                  <span class="register-section-meta"><a href="#" id="linkToCaptcha" style="color:var(--brand-hover);text-decoration:none;">打码平台</a> · <a href="#" id="linkToProxy" style="color:var(--brand-hover);text-decoration:none;">代理池</a></span>
                 </div>
-                <div class="register-params-grid">
-                    <label class="field span-2">
-                    <span>代理</span>
-                    <label class="switch" style="margin-bottom:8px;"><input type="checkbox" id="useProxyPool" checked /> 使用代理池（SQLite，注册/重登按号分配）</label>
-                    <input type="text" id="proxy" placeholder="备用代理 host:port:user:pass-US-{sid}（保存时自动写入数据库）" autocomplete="off" />
-                  </label>
-                  <label class="field span-2"><span>captcha.run Key</span><input type="password" id="captchaKey" placeholder="captcha.run Bearer key" autocomplete="off" spellcheck="false" /></label>
-                </div>
+                <div id="registerResourcePanel" class="register-resource-selects"></div>
+                <p class="register-inline-hint" id="regResourceHint" style="margin-top:0;"></p>
               </div>
               <div class="register-run-params">
-                <div class="register-section-head">
+                <div class="register-section-head register-section-head-tight">
                   <h3>运行参数</h3>
                   <span class="register-section-meta">数量、并发、产出格式</span>
                 </div>
                 <div class="register-params-grid">
-                  <label class="field span-2"><span>执行路线</span><select id="executionRoute"></select><small id="executionRouteHint" class="hint"></small></label>
                   <label class="field" id="roxyProfileField" style="display:none;"><span>Roxy Profile ID</span><input type="text" id="roxyProfileId" placeholder="选择或填写 dirId" autocomplete="off" /></label>
                   <label class="field" id="bitbrowserProfileField" style="display:none;"><span>比特浏览器 Profile ID</span><input type="text" id="bitbrowserProfileId" placeholder="选择或填写 profileId" autocomplete="off" /></label>
                   <label class="field"><span>注册数量</span><input type="number" id="count" value="1" min="1" max="20" /></label>
                   <label class="field"><span>并发度</span><input type="number" id="concurrency" value="1" min="1" max="20" /></label>
-                  <label class="field"><span>PX 模式</span><select id="pxMode"></select></label>
-                  <label class="field"><span>邮箱后缀</span><select id="domain"></select></label>
-                  <label class="field"><span>国家代码</span><input type="text" id="country" value="US" /></label>
+                  <label class="field" title="Microsoft 官方 Outlook/Hotmail 域名，不含 QQ/163"><span>邮箱后缀</span><select id="domain"></select></label>
+                  <label class="field" title="与代理出口一致，影响注册页语言、时区与批次命名"><span>国家代码</span><select id="country"></select></label>
                   <label class="field"><span>邮箱前缀（留空随机）</span><input type="text" id="prefix" placeholder="随机" /></label>
                   <label class="field span-2"><span>产出格式</span><select id="tokenMode"></select></label>
-                  <label class="field span-2"><span>批次名称（可选）</span><input type="text" id="batchLabel" placeholder="留空自动生成，如 0815-US-outlook-10x-G6" autocomplete="off" /></label>
+                  <label class="field span-2"><span>批次名称（可选）</span><input type="text" id="batchLabel" placeholder="留空自动生成" autocomplete="off" /></label>
                 </div>
-                <label class="register-mode-toggle"><span>仅注册不登录</span><input type="checkbox" id="skipLogin" /></label>
-                <p class="register-inline-hint">单次真实注册上限 20；产出写入 <code>accounts/</code>。</p>
+                <label class="register-mode-toggle" style="margin:0 16px 14px;"><span>仅注册不登录</span><input type="checkbox" id="skipLogin" /></label>
+                <p class="register-inline-hint">单次真实注册上限 20；产出写入 <code>accounts/</code>。 <span id="cfgHint"></span></p>
               </div>
-            </div>
-            <div class="register-panel-foot">
-              <button class="btn primary" id="startBtn">开始批次注册</button>
-              <span class="hint" id="cfgHint" style="margin:0;"></span>
             </div>
           </section>
 
-          <section class="register-log-panel">
+          <section class="register-log-panel register-log-panel-page">
             <div class="register-log-head">
-              <div class="register-log-head-main">
+              <div class="register-log-title-row">
                 <strong>注册日志</strong>
-                <div class="register-batch-stats" id="jobBadge"></div>
-              </div>
-              <div class="register-log-head-actions">
-                <button type="button" class="register-log-copy-btn" id="logCopyBtn" title="复制全部日志" style="display:none;">复制</button>
-                <span class="register-log-live" id="logLive" style="display:none;">实时更新中…</span>
-              </div>
-            </div>
-            <div class="register-log-body">
-              <div class="console" id="console"><p class="register-log-empty" id="logEmpty">配置完成后点击「开始批次注册」，代理预检、PX、注册各阶段会实时显示在这里</p></div>
-            </div>
-            <div class="progress-section">
-              <div class="register-log-head">
-                <strong>账号进度</strong>
-                <div class="register-batch-stats">
-                  <span>总 <b id="nTotal">0</b></span>
-                  <span style="color:var(--success)">成功 <b id="nOk">0</b></span>
-                  <span style="color:var(--danger)">失败 <b id="nErr">0</b></span>
-                  <span style="color:var(--brand-hover)">进行中 <b id="nRun">0</b></span>
+                <div class="register-log-head-actions">
+                  <button type="button" class="register-log-copy-btn" id="logCopyBtn" title="复制全部日志" style="display:none;">复制</button>
+                  <span class="register-log-live" id="logLive" style="display:none;">实时更新中…</span>
                 </div>
               </div>
-              <div class="progress-wrap tbl-wrap" style="border:0;border-radius:0;">
-                <table>
-                  <thead><tr><th style="width:40px;">#</th><th>状态</th><th>邮箱</th><th>密码</th><th>refresh_token</th><th>失败原因</th></tr></thead>
-                  <tbody id="progressBody"><tr><td colspan="6" class="empty">开始注册后，各账号状态会显示在这里</td></tr></tbody>
-                </table>
+              <div class="register-log-meta" id="jobBadge"></div>
+              <div class="register-log-stats" id="jobStats" style="display:none;"></div>
+            </div>
+            <div class="register-log-body">
+              <div class="console" id="console"><p class="register-log-empty" id="logEmpty">配置完成后点击「开始注册」，代理预检、PX、注册各阶段会实时显示在这里</p></div>
+              <div id="batchSummary" class="register-log-summary msgbox" style="display:none;"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="section" id="sec-captcha">
+        <div class="pool-page provider-page">
+          <header class="pool-header provider-page-header">
+            <div class="pool-header-row">
+              <div class="pool-title-block">
+                <h1>打码服务</h1>
+                <p>Outlook 注册仅 PX 打码，无接码。Key 存 SQLite；注册中心下拉选用。</p>
+              </div>
+              <div class="pool-header-actions">
+                <button class="pool-btn" id="btnRefreshCaptcha">刷新</button>
               </div>
             </div>
-            <div id="batchSummary" class="msgbox" style="margin:0 14px 10px;"></div>
-          </section>
+          </header>
+          <div class="provider-page-scroll">
+            <div class="provider-section-head">
+              <div>
+                <h2>打码服务</h2>
+                <p id="captchaProviderSummary">加载中…</p>
+              </div>
+            </div>
+            <div id="captchaProviderList"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="sec-captcha">
+        <div class="pool-page provider-page">
+          <header class="pool-header provider-page-header">
+            <div class="pool-header-row">
+              <div class="pool-title-block">
+                <h1>打码服务</h1>
+                <p>Outlook 注册仅 PX 打码，无接码。Key 存 SQLite；注册中心下拉选用。</p>
+              </div>
+              <div class="pool-header-actions">
+                <button class="pool-btn" id="btnRefreshCaptcha">刷新</button>
+              </div>
+            </div>
+          </header>
+          <div class="provider-page-scroll">
+            <div class="provider-section-head">
+              <div>
+                <h2>打码服务</h2>
+                <p id="captchaProviderSummary">加载中…</p>
+              </div>
+            </div>
+            <div id="captchaProviderList"></div>
+          </div>
         </div>
       </section>
 
@@ -500,8 +688,7 @@
         <div class="pool-page">
           <div class="stats" id="proxyStatCards"></div>
           <div class="proxy-empty-banner" id="proxyEmptyBanner" style="display:none;">
-            <strong>代理池为空。</strong>请点击「添加代理」导入模板，或在「批次注册」页填写代理后点「开始」——会自动写入 SQLite。
-            注册页勾选「使用代理池」后才会按号分配并统计成功率。
+            <strong>代理池为空。</strong>请点击「添加代理」导入模板写入 SQLite；「批次注册」页从下拉选择代理分配方式。
           </div>
           <div class="card pad" style="margin-bottom:12px;">
             <h2 style="margin-bottom:10px;">池设置</h2>
@@ -562,7 +749,7 @@
         </div>
       </section>
 
-      <section class="section" id="sec-proxy-stats">
+      <section class="section fill" id="sec-proxy-stats">
         <div class="stats-page">
           <div class="stats" id="proxyAnalyticsStatCards"></div>
           <div class="proxy-chart-wrap">
@@ -818,8 +1005,119 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="dialog-backdrop" id="captchaEditModal" style="display:none;">
+  <div class="dialog-panel-sm" role="dialog" aria-modal="true">
+    <h3 id="captchaModalTitle">编辑 Provider</h3>
+    <label class="field">
+      <span id="captchaModalKeyLabel">API Key</span>
+      <div class="secret-input-wrap">
+        <input type="password" id="captchaModalKey" placeholder="Bearer key" autocomplete="off" spellcheck="false" />
+        <button type="button" class="secret-eye-btn" id="captchaModalEye" title="显示" aria-label="显示 Key"></button>
+      </div>
+    </label>
+    <p class="hint" id="captchaModalHint" style="margin:8px 0 0;font-size:11.5px;">默认隐藏，点眼睛可查看/编辑；保存后写入 SQLite。</p>
+    <div class="dialog-actions">
+      <button type="button" class="btn sm" id="captchaModalCancel">取消</button>
+      <button type="button" class="btn primary sm" id="captchaModalSave">保存</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const $ = (id) => document.getElementById(id);
+const NAV_ICONS = {
+  dashboard:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+  play:'<svg viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>',
+  smartphone:'<svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>',
+  globe:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  chart:'<svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+  users:'<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  shield:'<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>',
+  refresh:'<svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.37 4.37A9 9 0 0 0 20.49 15"/></svg>',
+};
+const FALLBACK_DOMAINS=[
+  {value:'@outlook.com',label:'Outlook 国际'},{value:'@hotmail.com',label:'Hotmail 国际'},
+  {value:'@outlook.com.ar',label:'阿根廷'},{value:'@outlook.com.au',label:'澳大利亚'},{value:'@outlook.at',label:'奥地利'},
+  {value:'@outlook.be',label:'比利时'},{value:'@outlook.com.br',label:'巴西'},{value:'@outlook.cl',label:'智利'},
+  {value:'@outlook.cz',label:'捷克'},{value:'@outlook.dk',label:'丹麦'},{value:'@outlook.fr',label:'法国'},{value:'@outlook.de',label:'德国'},
+  {value:'@outlook.com.gr',label:'希腊'},{value:'@outlook.co.il',label:'以色列'},{value:'@outlook.in',label:'印度'},{value:'@outlook.co.id',label:'印尼'},
+  {value:'@outlook.ie',label:'爱尔兰'},{value:'@outlook.it',label:'意大利'},{value:'@outlook.hu',label:'匈牙利'},{value:'@outlook.jp',label:'日本'},
+  {value:'@outlook.kr',label:'韩国'},{value:'@outlook.lv',label:'拉脱维亚'},{value:'@outlook.my',label:'马来西亚'},{value:'@outlook.co.nz',label:'新西兰'},
+  {value:'@outlook.com.pe',label:'秘鲁'},{value:'@outlook.ph',label:'菲律宾'},{value:'@outlook.pt',label:'葡萄牙'},{value:'@outlook.sa',label:'沙特'},
+  {value:'@outlook.sg',label:'新加坡'},{value:'@outlook.sk',label:'斯洛伐克'},{value:'@outlook.es',label:'西班牙'},{value:'@outlook.co.th',label:'泰国'},
+  {value:'@outlook.com.tr',label:'土耳其'},{value:'@outlook.co.uk',label:'英国'},{value:'@outlook.com.vn',label:'越南'},
+];
+const FALLBACK_COUNTRIES=[
+  {code:'AE',name:'United Arab Emirates',name_zh:'阿联酋'},{code:'AR',name:'Argentina',name_zh:'阿根廷'},{code:'AT',name:'Austria',name_zh:'奥地利'},{code:'AU',name:'Australia',name_zh:'澳大利亚'},
+  {code:'BE',name:'Belgium',name_zh:'比利时'},{code:'BR',name:'Brazil',name_zh:'巴西'},{code:'CA',name:'Canada',name_zh:'加拿大'},{code:'CH',name:'Switzerland',name_zh:'瑞士'},{code:'CL',name:'Chile',name_zh:'智利'},
+  {code:'CN',name:'China',name_zh:'中国'},{code:'CO',name:'Colombia',name_zh:'哥伦比亚'},{code:'CZ',name:'Czechia',name_zh:'捷克'},{code:'DE',name:'Germany',name_zh:'德国'},{code:'DK',name:'Denmark',name_zh:'丹麦'},
+  {code:'EG',name:'Egypt',name_zh:'埃及'},{code:'ES',name:'Spain',name_zh:'西班牙'},{code:'FI',name:'Finland',name_zh:'芬兰'},{code:'FR',name:'France',name_zh:'法国'},{code:'GB',name:'United Kingdom',name_zh:'英国'},
+  {code:'GR',name:'Greece',name_zh:'希腊'},{code:'HK',name:'Hong Kong',name_zh:'香港'},{code:'HU',name:'Hungary',name_zh:'匈牙利'},{code:'ID',name:'Indonesia',name_zh:'印尼'},{code:'IE',name:'Ireland',name_zh:'爱尔兰'},
+  {code:'IL',name:'Israel',name_zh:'以色列'},{code:'IN',name:'India',name_zh:'印度'},{code:'IT',name:'Italy',name_zh:'意大利'},{code:'JP',name:'Japan',name_zh:'日本'},{code:'KR',name:'South Korea',name_zh:'韩国'},
+  {code:'LV',name:'Latvia',name_zh:'拉脱维亚'},{code:'MX',name:'Mexico',name_zh:'墨西哥'},{code:'MY',name:'Malaysia',name_zh:'马来西亚'},{code:'NL',name:'Netherlands',name_zh:'荷兰'},{code:'NO',name:'Norway',name_zh:'挪威'},
+  {code:'NZ',name:'New Zealand',name_zh:'新西兰'},{code:'PE',name:'Peru',name_zh:'秘鲁'},{code:'PH',name:'Philippines',name_zh:'菲律宾'},{code:'PL',name:'Poland',name_zh:'波兰'},{code:'PT',name:'Portugal',name_zh:'葡萄牙'},
+  {code:'RO',name:'Romania',name_zh:'罗马尼亚'},{code:'RU',name:'Russia',name_zh:'俄罗斯'},{code:'SA',name:'Saudi Arabia',name_zh:'沙特'},{code:'SE',name:'Sweden',name_zh:'瑞典'},{code:'SG',name:'Singapore',name_zh:'新加坡'},
+  {code:'SK',name:'Slovakia',name_zh:'斯洛伐克'},{code:'TH',name:'Thailand',name_zh:'泰国'},{code:'TR',name:'Turkey',name_zh:'土耳其'},{code:'TW',name:'Taiwan',name_zh:'台湾'},{code:'UA',name:'Ukraine',name_zh:'乌克兰'},
+  {code:'US',name:'United States',name_zh:'美国'},{code:'VN',name:'Vietnam',name_zh:'越南'},{code:'ZA',name:'South Africa',name_zh:'南非'},
+];
+function normalizeDomainOption(d){
+  if(!d) return null;
+  if(typeof d==='string') return {value:d, label:d};
+  const value=d.value||d.domain||'';
+  return {value, label:d.label||value};
+}
+function countryOptionLabel(x){
+  const zh=x.name_zh||'';
+  const en=x.name||x.code||'';
+  return zh ? `${x.code} · ${zh}` : `${x.code} · ${en}`;
+}
+const JOB_STATUS_LABEL = { done:'SUCCESS', running:'RUNNING', error:'FAILED', pending:'PENDING', cancelled:'CANCELLED' };
+function renderCountrySelect(countries,defaultCode){
+  const el=$('country'); if(!el) return;
+  const list=(countries&&countries.length)?countries:FALLBACK_COUNTRIES;
+  el.innerHTML=list.map(x=>`<option value="${escHtml(x.code)}">${escHtml(countryOptionLabel(x))}</option>`).join('');
+  const def=(defaultCode||'US').toUpperCase();
+  el.value=list.some(x=>x.code===def)?def:'US';
+}
+function renderDomainSelect(domains){
+  const el=$('domain'); if(!el) return;
+  const raw=(domains&&domains.length)?domains:FALLBACK_DOMAINS;
+  const list=raw.map(normalizeDomainOption).filter(Boolean);
+  el.innerHTML=list.map(d=>`<option value="${escHtml(d.value)}">${escHtml(d.value)} · ${escHtml(d.label)}</option>`).join('');
+}
+async function fetchCaptchaKey(id){
+  const meta=CAPTCHA_SAVE_FIELDS[id];
+  if(!meta) return '';
+  try{
+    const r=await api('/api/captcha-provider/'+encodeURIComponent(id)+'/key');
+    if(r.ok){ const kj=await r.json(); if(kj.ok&&kj.key) return kj.key; }
+  }catch(e){}
+  try{
+    const r=await api('/api/settings?reveal=1');
+    if(r.ok){
+      const sj=await r.json();
+      const row=sj[meta.api];
+      if(row&&row.key) return row.key;
+    }
+  }catch(e){}
+  return '';
+}
+function initNavIcons(){ document.querySelectorAll('.nav .ic[data-icon]').forEach(el=>{ const k=el.dataset.icon; if(NAV_ICONS[k]) el.innerHTML=NAV_ICONS[k]; }); }
+function formatJobStatus(s){ const raw=String(s||'').toLowerCase(); return JOB_STATUS_LABEL[raw]||String(s||'UNKNOWN').toUpperCase(); }
+function jobStatusClass(s){ const raw=String(s||'').toLowerCase(); if(raw==='done') return 'ok'; if(raw==='error'||raw==='failed') return 'err'; if(raw==='running') return 'run'; if(raw==='cancelled') return 'wait'; return 'wait'; }
+let currentJobId=null;
+function setRegisterRunning(running){
+  if($('startBtn')) $('startBtn').disabled=!!running;
+  if($('stopBtn')) $('stopBtn').style.display=running?'inline-flex':'none';
+  if($('logLive')) $('logLive').style.display=running?'inline':'none';
+}
+function onRegisterJobDone(status){
+  if(es){ es.close(); es=null; }
+  currentJobId=null;
+  setRegisterRunning(false);
+  toast(status==='cancelled'?'任务已停止':'批次完成');
+  loadAccounts(); loadJobs();
+}
 let CFG = {};
 let ACCOUNTS = [];
 let SELECTED = new Set();
@@ -981,7 +1279,8 @@ async function jpost(path, body){
 
 const TITLES = {
   overview:['概览','账号与批次总览'],
-  register:['批次注册','左配置 · 右进度'],
+  register:['注册中心','平台配置 · 运行参数 · 日志'],
+  captcha:['打码平台','PX 打码 Provider · 编辑弹窗保存'],
   proxies:['代理池','增删改查 · 预检 · 账号绑定'],
   'proxy-stats':['代理统计','成功率趋势 · 代理商维度'],
   pool:['账号池','管理 / 导入导出 / 测活 / 删除'],
@@ -994,34 +1293,193 @@ let PROXY_STATS_TS = null;
 const PROXY_CHART_HIDDEN = new Set();
 const CHART_PALETTE = ['#059669','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2','#be185d','#65a30d','#ea580c','#4f46e5'];
 let PROXY_CHART_LAYOUT = null;
-document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');
-  const sec=b.dataset.sec;
+function navToSection(sec){
+  document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active', x.dataset.sec===sec));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   $('sec-'+sec).classList.add('active');
   $('pageTitle').textContent=TITLES[sec][0]; $('pageSub').textContent=TITLES[sec][1];
+  const content=document.querySelector('.content');
+  const main=document.querySelector('.main');
+  if(sec==='register'){
+    content.classList.add('register-mode');
+    main?.classList.add('register-mode');
+    loadRegisterOptions();
+  } else {
+    content.classList.remove('register-mode');
+    main?.classList.remove('register-mode');
+  }
   if(sec==='overview'){ loadAccounts(); loadJobs(); }
   if(sec==='pool') loadAccounts();
+  if(sec==='captcha') loadCaptchaSettings();
   if(sec==='proxies') loadProxyPool();
   if(sec==='proxy-stats') loadProxyStats();
-});
+}
+document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>navToSection(b.dataset.sec));
 
-const DEFAULT_PROXY = '';
-const DEFAULT_CAPTCHA_KEY = '';
+let REGISTER_OPTIONS = null;
+let _captchaEditId = null;
+const CAPTCHA_SAVE_FIELDS = {
+  offcaptcha: { api:'offcaptcha_api_key', label:'OffCaptcha', keyLabel:'API Key' },
+  captcha_run: { api:'captcha_run_api_key', label:'captcha.run', keyLabel:'API Key' },
+  ezcaptcha: { api:'ezcaptcha_api_key', label:'EzCaptcha', keyLabel:'Client Key' },
+  capsolver: { api:'capsolver_api_key', label:'CapSolver', keyLabel:'Client Key' },
+};
 
-async function syncProxyToDb(text, provider='web'){
-  const t=(text||'').trim();
-  if(!t) return null;
+function captchaOptionLabel(item){
+  const name = item.label || item.id;
+  if(!item.configured && item.requires_key) return `${name}（未配置）`;
+  return name;
+}
+
+function updateRegisterReadyStatus(){
+  const el=$('registerReadyStatus');
+  if(!el||!REGISTER_OPTIONS) return;
+  const items=(REGISTER_OPTIONS.captcha&&REGISTER_OPTIONS.captcha.items)||[];
+  const cap=($('regCaptchaProvider')&&$('regCaptchaProvider').value)||'';
+  const capItem=items.find(x=>x.id===cap);
+  const proxySel=($('regProxySelection')&&$('regProxySelection').value)||'auto';
+  const proxyOpt=((REGISTER_OPTIONS.proxy&&REGISTER_OPTIONS.proxy.options)||[]).find(x=>x.value===proxySel);
+  const capOk=capItem&&(capItem.configured||!capItem.requires_key);
+  const poolN=(REGISTER_OPTIONS.proxy&&REGISTER_OPTIONS.proxy.stats&&REGISTER_OPTIONS.proxy.stats.enabled)||0;
+  const proxyOk=proxySel==='auto'?poolN>0:((proxyOpt&&proxyOpt.count)||0)>0;
+  el.className='register-toolbar-status '+(capOk&&proxyOk?'ok':'warn');
+  el.textContent=capOk&&proxyOk?'已就绪':(!capOk?'打码未配置':(!proxyOk?'代理不可用':'未就绪'));
+}
+
+function bindRegisterResourceEvents(){
+  const capSel=$('regCaptchaProvider');
+  const proxySel=$('regProxySelection');
+  if(capSel) capSel.onchange=function(){
+    localStorage.setItem('outlook_reg_captcha_provider', this.value);
+    updateRegisterReadyStatus();
+  };
+  if(proxySel) proxySel.onchange=function(){
+    localStorage.setItem('outlook_reg_proxy_selection', this.value);
+    updateRegisterReadyStatus();
+  };
+}
+
+function renderRegisterResourceSelects(opts){
+  REGISTER_OPTIONS = opts;
+  const panel=$('registerResourcePanel');
+  if(!panel) return;
+  const items=(opts.captcha&&opts.captcha.items)||[];
+  const capList=items;
+  const savedCap=localStorage.getItem('outlook_reg_captcha_provider')||(opts.captcha&&opts.captcha.default)||'offcaptcha';
+  const pOpts=(opts.proxy&&opts.proxy.options)||[{value:'auto',label:'自动（代理池）'}];
+  const savedProxy=localStorage.getItem('outlook_reg_proxy_selection')||'auto';
+  const curCap=items.find(x=>x.id===savedCap)||items[0];
+  const curProxy=pOpts.find(x=>x.value===savedProxy)||pOpts[0];
+  panel.innerHTML=`
+    <div class="field register-resource-field">
+      <div class="register-resource-field-head">打码服务 <span class="register-resource-status ${curCap&&curCap.configured?'ok':'warn'}">${curCap&&curCap.configured?'已就绪':'未配置'}</span></div>
+      <select id="regCaptchaProvider" class="register-resource-select">${capList.map(it=>`<option value="${it.id}"${it.id===savedCap?' selected':''}${it.configured?'':' disabled'}>${escHtml(captchaOptionLabel(it))}</option>`).join('')}</select>
+    </div>
+    <div class="field register-resource-field">
+      <div class="register-resource-field-head">代理 <span class="register-resource-status ${curProxy&&(curProxy.value==='auto'?((opts.proxy&&opts.proxy.stats&&opts.proxy.stats.enabled)||0)>0:(curProxy.count||0)>0)?'ok':'warn'}">${curProxy&&(curProxy.value==='auto'?((opts.proxy&&opts.proxy.stats&&opts.proxy.stats.enabled)||0)>0:(curProxy.count||0)>0)?'已就绪':'未配置'}</span></div>
+      <select id="regProxySelection" class="register-resource-select">${pOpts.map(o=>`<option value="${escHtml(o.value)}"${o.value===savedProxy?' selected':''}${(o.count||0)===0&&o.value!=='auto'?' disabled':''}>${escHtml(o.label)}</option>`).join('')}</select>
+    </div>`;
+  bindRegisterResourceEvents();
+  if($('regResourceHint')) $('regResourceHint').textContent='选择后自动记住；Key 在「打码平台」编辑，代理在「代理池」维护';
+  updateRegisterReadyStatus();
+}
+
+async function loadRegisterOptions(){
   try {
-    return await jpost('/api/proxy-pool/ensure', {text:t, provider});
-  } catch(e){ return null; }
+    const opts=await (await api('/api/register-options')).json();
+    renderRegisterResourceSelects(opts);
+    return opts;
+  } catch(e){
+    if($('regResourceHint')) $('regResourceHint').textContent='加载资源选项失败: '+e;
+    return null;
+  }
+}
+
+function renderCaptchaProviderCards(opts){
+  const list=$('captchaProviderList');
+  const summary=$('captchaProviderSummary');
+  if(!list) return;
+  const items=(opts.captcha&&opts.captcha.items)||[];
+  const defaultId=(opts.captcha&&opts.captcha.default)||'offcaptcha';
+  const enabled=items.filter(x=>x.configured).length;
+  if(summary) summary.textContent=`共 ${items.length} 个 · 已配置 ${enabled} · 默认 ${items.find(x=>x.id===defaultId)?.label||defaultId}`;
+  list.innerHTML=items.map(it=>{
+    const meta=it.configured?(it.masked?`Key ${it.masked}`:'已配置'):(it.requires_key?'未配置 Key':'无需 Key');
+    const defaultChip=it.id===defaultId?' <span class="register-chip on">默认</span>':'';
+    const editBtn=it.requires_key?`<button type="button" class="table-action-btn" data-captcha-edit="${it.id}">编辑</button>`:'';
+    const sub=[it.hint||'', meta+(it.source?(' · '+it.source):'')].filter(Boolean).join(' · ');
+    return `<div class="provider-card-row">
+      <div class="provider-card-main">
+        <div class="provider-card-title">${escHtml(it.label||it.id)}${defaultChip}</div>
+        <p class="provider-card-sub">${escHtml(sub)}</p>
+      </div>
+      <div class="provider-card-actions">${editBtn}
+        <button type="button" class="table-action-btn" data-captcha-default="${it.id}" ${it.id===defaultId?'disabled':''}>${it.id===defaultId?'已是默认':'设为默认'}</button>
+      </div></div>`;
+  }).join('');
+}
+
+const CAPTCHA_EYE_SVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+const CAPTCHA_EYE_OFF_SVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+function setCaptchaKeyVisible(show){
+  const inp=$('captchaModalKey');
+  const btn=$('captchaModalEye');
+  if(!inp) return;
+  inp.type=show?'text':'password';
+  if(btn){ btn.innerHTML=show?CAPTCHA_EYE_OFF_SVG:CAPTCHA_EYE_SVG; btn.title=show?'隐藏':'显示'; }
+}
+async function openCaptchaEditModal(id){
+  const meta=CAPTCHA_SAVE_FIELDS[id];
+  if(!meta) return;
+  await loadCaptchaSettings();
+  const item=((REGISTER_OPTIONS&&REGISTER_OPTIONS.captcha&&REGISTER_OPTIONS.captcha.items)||[]).find(x=>x.id===id);
+  _captchaEditId=id;
+  $('captchaModalTitle').textContent='编辑 · '+meta.label;
+  $('captchaModalKeyLabel').textContent=meta.keyLabel;
+  const keyVal=await fetchCaptchaKey(id);
+  $('captchaModalKey').value=keyVal;
+  $('captchaModalKey').placeholder=keyVal?'点击眼睛查看，可直接修改后保存':'Bearer key';
+  const hint=$('captchaModalHint');
+  if(hint) hint.textContent=keyVal?'已加载当前 Key（默认隐藏）；点眼睛查看全部，改完点保存。':'填写 Key 后保存，写入本机 SQLite。';
+  setCaptchaKeyVisible(false);
+  $('captchaEditModal').style.display='flex';
+  setTimeout(()=>{$('captchaModalKey')&&$('captchaModalKey').focus();}, 50);
+}
+function closeCaptchaEditModal(){
+  _captchaEditId=null;
+  $('captchaEditModal').style.display='none';
+  setCaptchaKeyVisible(false);
+}
+async function saveCaptchaModal(){
+  if(!_captchaEditId) return;
+  const meta=CAPTCHA_SAVE_FIELDS[_captchaEditId];
+  const item=((REGISTER_OPTIONS&&REGISTER_OPTIONS.captcha&&REGISTER_OPTIONS.captcha.items)||[]).find(x=>x.id===_captchaEditId);
+  const val=($('captchaModalKey').value||'').trim();
+  if(!val){
+    if(item&&item.configured){ closeCaptchaEditModal(); return; }
+    toast('请输入 Key'); return;
+  }
+  const body={}; body[meta.api]=val;
+  const j=await jpost('/api/settings', body);
+  if(!j.ok){ toast(j.detail||j.message||'保存失败'); return; }
+  toast(meta.label+' 已保存');
+  closeCaptchaEditModal();
+  await loadCaptchaSettings();
+}
+
+async function loadCaptchaSettings(){
+  try {
+    const opts=await (await api('/api/register-options')).json();
+    REGISTER_OPTIONS=opts;
+    renderCaptchaProviderCards(opts);
+    renderRegisterResourceSelects(opts);
+  } catch(e){ toast('加载打码配置失败: '+e); }
 }
 
 async function loadConfig(){
   try {
     const c = await (await api('/api/config')).json(); CFG=c;
-    $('pxMode').innerHTML = c.px_modes.map(m=>`<option>${m}</option>`).join('');
+    await loadRegisterOptions();
     const routes = c.execution_routes || [{id:'protocol',label:'纯协议（当前可用）',ready:true,description:'Fluent Web API + PX solver'}];
     $('executionRoute').innerHTML = routes.map(r=>`<option value="${r.id}"${r.id==='protocol'?' selected':''}${r.ready?'':' disabled'}>${r.label}${r.ready?'':'（尚未接入）'}</option>`).join('');
     const updateRouteHint = ()=>{
@@ -1043,24 +1501,15 @@ async function loadConfig(){
     }).join('');
     window._productModes = products;
     $('tokenMode').onchange = function(){};
-    $('domain').innerHTML = c.domains.map(d=>`<option>${d}</option>`).join('');
-    $('country').value = c.default_country||'US';
-    $('proxy').placeholder = 'host:port:user:pass-US-{sid}';
-    $('captchaKey').placeholder = 'captcha.run Bearer key';
-    const savedProxy = localStorage.getItem('outlook_reg_proxy');
-    const savedKey = localStorage.getItem('outlook_reg_captcha_key');
-    $('proxy').value = savedProxy || DEFAULT_PROXY;
-    if(savedProxy) await syncProxyToDb(savedProxy);
-    $('captchaKey').value = savedKey || DEFAULT_CAPTCHA_KEY;
+    renderDomainSelect(c.domains);
+    renderCountrySelect(c.countries, c.default_country);
     $('count').value = '1';
     $('concurrency').value = '1';
-    $('cfgHint').textContent = '已预填 Key；注册默认走代理池，备用代理可留空（池内无条目时必填）';
+    if($('cfgHint')) $('cfgHint').textContent = '';
     const fmtLabel={graph:'4 段式(Graph 读信)',dual:'6 段式(双令牌 SSO，两枚 refresh)',recovery:'6 段式(含恢复邮箱)'};
     $('exportFmt').innerHTML = (c.export_formats||['graph']).map(f=>`<option value="${f}">${fmtLabel[f]||f}</option>`).join('');
     $('exportFmt').value='graph';
     $('footEngine').textContent = `批量:${c.batch_ready?'引擎':'线程池'} · dual:${c.dual_ready?'就绪':'未就绪'} · 代理池:${(c.proxy_pool&&c.proxy_pool.enabled)||0}`;
-    const savedUsePool = localStorage.getItem('outlook_use_proxy_pool');
-    if($('useProxyPool')) $('useProxyPool').checked = savedUsePool==='0' ? false : true;
   } catch(e){ $('cfgHint').textContent='配置加载失败: '+e; }
 }
 async function health(){
@@ -1078,104 +1527,119 @@ async function loadJobs(){
     const j=await (await api('/api/jobs')).json();
     if(!j.jobs.length){ $('jobsBody').innerHTML='<tr><td colspan="7" class="empty">暂无批次</td></tr>'; return; }
     $('jobsBody').innerHTML=j.jobs.map(x=>{
-      const stcls=x.status==='done'?'ok':(x.status==='error'?'err':'run');
+      const stcls=jobStatusClass(x.status);
+      const stLabel=formatJobStatus(x.status);
       const label=x.batch_label || (x.batch_no ? ('B'+x.batch_no) : x.id);
       return `<tr data-batch="${escHtml(label)}" style="cursor:pointer" title="查看该批次账号 · ${escHtml(x.id||'')}">
         <td class="mono">${escHtml(label)}</td><td>${(x.created_at||'').replace('T',' ').slice(0,19)}</td>
         <td>${x.count}</td><td>${x.concurrency}</td><td>${x.dry_run?'干跑·':''}${x.token_mode||''}</td>
-        <td><span class="st ${stcls}">${x.status}</span></td>
+        <td><span class="st ${stcls}">${stLabel}</span></td>
         <td><span style="color:var(--success)">${x.ok_count||0}</span> / <span style="color:var(--danger)">${x.fail_count||0}</span></td></tr>`;
     }).join('');
   } catch(e){}
 }
 
 const jobAccts = {};
-const stMap={'等待中':'wait','进行中':'run','成功':'ok','成功(干跑)':'ok','失败':'err'};
 const seenLogKeys = new Set();
 function renderProgress(){
   const rows=Object.values(jobAccts).sort((a,b)=>a.index-b.index);
-  if(!rows.length){ $('progressBody').innerHTML='<tr><td colspan="6" class="empty">开始注册后，各账号状态会显示在这里</td></tr>'; return; }
   let ok=0,err=0,run=0;
-  $('progressBody').innerHTML=rows.map(a=>{
-    if((a.status||'').startsWith('成功'))ok++;
-    else if(a.status==='失败')err++;
-    else if(a.status==='进行中')run++;
-    return `<tr><td>${a.index}</td><td><span class="st ${stMap[a.status]||'wait'}">${a.status}</span></td>
-      <td class="mono">${a.email||'—'}</td>
-      <td>${a.password?copyIconBtn(a.password):'<span class="rec-none">—</span>'}</td>
-      <td>${a.refresh_token?copyIconBtn(a.refresh_token):'<span class="rec-none">—</span>'}</td>
-      <td style="color:var(--danger);font-size:11px;">${escHtml(a.error||'')}</td></tr>`;
-  }).join('');
-  $('nTotal').textContent=rows.length; $('nOk').textContent=ok; $('nErr').textContent=err;
-  if($('nRun')) $('nRun').textContent=run;
+  rows.forEach(a=>{
+    if((a.status||'').startsWith('成功')) ok++;
+    else if(a.status==='失败') err++;
+    else if(a.status==='进行中') run++;
+  });
+  const stats=$('jobStats');
+  if(!stats||!rows.length){ if(stats) stats.style.display='none'; return; }
+  stats.style.display='block';
+  stats.textContent=`总 ${rows.length} · 成功 ${ok} · 失败 ${err}${run?` · 进行中 ${run}`:''}`;
 }
 function logLine(ev){
   const key=(ev.ts||'')+'|'+(ev.level||'INFO')+'|'+(ev.msg||'');
   if(seenLogKeys.has(key)) return;
   seenLogKeys.add(key);
   const empty=$('logEmpty'); if(empty) empty.remove();
-  const c=$('console'); const d=document.createElement('div'); d.className='l-'+(ev.level||'INFO');
-  d.innerHTML=`<span class="ts">${ev.ts||''}</span>${(ev.msg||'').replace(/</g,'&lt;')}`; c.appendChild(d); c.scrollTop=c.scrollHeight;
-  if($('logCopyBtn')) $('logCopyBtn').style.display='inline-block';
+  const c=$('console'); const lvl=ev.level||'INFO';
+  const d=document.createElement('div'); d.className='register-log-line l-'+lvl;
+  d.innerHTML=`<span class="register-log-time">${escHtml(ev.ts||'')}</span><span class="register-log-msg">${escHtml(ev.msg||'')}</span>`;
+  c.appendChild(d);
+  const body=c.closest('.register-log-body'); (body||c).scrollTop=(body||c).scrollHeight;
+  if($('logCopyBtn')) $('logCopyBtn').style.display='inline-flex';
 }
 function clearLogConsole(){
-  const c=$('console'); c.innerHTML='<p class="register-log-empty" id="logEmpty">配置完成后点击「开始批次注册」，代理预检、PX、注册各阶段会实时显示在这里</p>';
+  const c=$('console'); c.innerHTML='<p class="register-log-empty" id="logEmpty">配置完成后点击「开始注册」，代理预检、PX、注册各阶段会实时显示在这里</p>';
   if($('logCopyBtn')) $('logCopyBtn').style.display='none';
 }
 async function copyRegisterLogs(){
   const c=$('console'); if(!c) return;
-  const text=[...c.querySelectorAll('div')].map(el=>el.innerText).join('\n').trim();
+  const text=[...c.querySelectorAll('.register-log-line')].map(el=>el.innerText).join('\n').trim();
   if(!text){ toast('暂无日志'); return; }
   try{ await navigator.clipboard.writeText(text); toast('已复制日志'); }
   catch(e){ toast('复制失败'); }
 }
 function renderSummary(s){
-  if(!s){ $('batchSummary').className='msgbox'; $('batchSummary').innerHTML=''; return; }
+  const box=$('batchSummary'); if(!box) return;
+  if(!s){ box.className='register-log-summary msgbox'; box.style.display='none'; box.innerHTML=''; return; }
   const st=s.avg_stage_timings||{};
-  const stages=Object.entries(st).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="badge neutral">${k} ${v}s</span>`).join(' ')||'—';
-  $('batchSummary').className='msgbox show ok';
-  $('batchSummary').innerHTML=`<b>本批小结</b>　成功 ${s.ok}/${s.total}（失败 ${s.failed}）　本批耗时 <b>${s.elapsed}s</b>　单号均耗 <b>${s.avg_per_account}s</b><br><span style="color:var(--fg-3)">阶段平均：</span>${stages}`;
+  const stages=Object.entries(st).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="badge neutral">${escHtml(k)} ${v}s</span>`).join(' ')||'—';
+  box.className='register-log-summary msgbox show ok';
+  box.style.display='block';
+  box.innerHTML=`<b>本批小结</b> 成功 ${s.ok}/${s.total}（失败 ${s.failed}）· 耗时 ${s.elapsed}s · 均耗 ${s.avg_per_account}s<br><span style="color:var(--fg-3)">阶段：</span>${stages}`;
 }
 
 async function startRegister(){
-  const usePool = $('useProxyPool') && $('useProxyPool').checked;
-  const proxy = $('proxy').value.trim();
-  const captchaKey = $('captchaKey').value.trim();
-  if (!usePool && !proxy) { toast('请填写备用代理或启用代理池'); return; }
-  if (!captchaKey) { toast('请填写 captcha.run Key'); return; }
-  localStorage.setItem('outlook_reg_proxy', proxy);
-  localStorage.setItem('outlook_use_proxy_pool', usePool ? '1' : '0');
-  localStorage.setItem('outlook_reg_captcha_key', captchaKey);
-  if(proxy) await syncProxyToDb(proxy);
+  const captchaProvider = ($('regCaptchaProvider') && $('regCaptchaProvider').value) || '';
+  const proxySelection = ($('regProxySelection') && $('regProxySelection').value) || 'auto';
+  const capItem = ((REGISTER_OPTIONS&&REGISTER_OPTIONS.captcha&&REGISTER_OPTIONS.captcha.items)||[]).find(x=>x.id===captchaProvider);
+  if(!captchaProvider){ toast('请选择打码平台'); return; }
+  if(capItem && capItem.requires_key && !capItem.configured){ toast('请先在「打码平台」编辑 '+ (capItem.label||captchaProvider)); navToSection('captcha'); return; }
+  const proxyOpt = ((REGISTER_OPTIONS&&REGISTER_OPTIONS.proxy&&REGISTER_OPTIONS.proxy.options)||[]).find(x=>x.value===proxySelection);
+  if(proxySelection!=='auto' && proxyOpt && proxyOpt.count===0){ toast('所选代理分组无可用条目'); return; }
+  localStorage.setItem('outlook_reg_captcha_provider', captchaProvider);
+  localStorage.setItem('outlook_reg_proxy_selection', proxySelection);
   const batchLabel=$('batchLabel').value.trim();
   const body={ count:+$('count').value||1, concurrency:+$('concurrency').value||1,
     prefix:$('prefix').value.trim()||null, domain:$('domain').value, country:$('country').value.trim()||'US',
-    proxy, use_proxy_pool: usePool, px_mode:$('pxMode').value, skip_login:$('skipLogin').checked,
-    no_mail_token:false, captcha_key:captchaKey,
+    captcha_provider:captchaProvider, proxy_selection:proxySelection,
+    use_proxy_pool: proxySelection==='auto' || proxySelection.startsWith('provider:'),
+    skip_login:$('skipLogin').checked,
+    no_mail_token:false,
     token_mode:$('tokenMode').value, dry_run:false,
     execution_route:$('executionRoute').value,
     roxy_profile_id:($('roxyProfileId')&&$('roxyProfileId').value.trim())||null,
     bitbrowser_profile_id:($('bitbrowserProfileId')&&$('bitbrowserProfileId').value.trim())||null };
   if(batchLabel) body.batch_label=batchLabel;
-  $('startBtn').disabled=true; clearLogConsole(); seenLogKeys.clear(); renderSummary(null); for(const k in jobAccts) delete jobAccts[k]; renderProgress();
-  if($('logLive')) $('logLive').style.display='inline';
+  setRegisterRunning(true); clearLogConsole(); seenLogKeys.clear(); renderSummary(null); for(const k in jobAccts) delete jobAccts[k]; renderProgress();
   try {
     const r=await api('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok){ const e=await r.json(); throw new Error(e.detail||r.status); }
     const j=await r.json();
-    $('jobBadge').innerHTML=`<span class="badge brand">${j.batch_label||''}</span> <span class="badge neutral">${j.dry_run?'干跑':'真实'} · ${j.count}个 · 并发${j.concurrency}</span>`;
+    currentJobId=j.job_id||null;
+    const batchHtml=`<span class="badge brand">${escHtml(j.batch_label||'')}</span> <span class="badge neutral">${j.dry_run?'干跑':'真实'} · ${j.count}个 · 并发${j.concurrency}</span>`;
+    $('jobBadge').innerHTML=batchHtml;
+    if($('jobStats')){ $('jobStats').style.display='none'; $('jobStats').textContent=''; }
     toast('批次已启动'); connectSSE(j.job_id);
-  } catch(e){ logLine({level:'ERROR',msg:'启动失败: '+e.message}); $('startBtn').disabled=false; if($('logLive')) $('logLive').style.display='none'; }
+  } catch(e){ logLine({level:'ERROR',msg:'启动失败: '+e.message}); setRegisterRunning(false); currentJobId=null; }
+}
+async function stopRegister(){
+  try{
+    const path=currentJobId?('/api/jobs/'+currentJobId+'/cancel'):'/api/jobs/cancel-running';
+    const j=await jpost(path,{});
+    if(!j.ok && !j.cancelled?.length){ toast(j.detail||j.message||'停止失败'); return; }
+    logLine({level:'WARNING',msg:'任务已请求停止'});
+    onRegisterJobDone('cancelled');
+  }catch(e){ toast('停止失败: '+e.message); }
 }
 function connectSSE(id){
   if(es) es.close();
+  currentJobId=id;
   es=new EventSource('/api/jobs/'+id+'/events');
   es.onmessage=(m)=>{ const ev=JSON.parse(m.data);
     if(ev.type==='snapshot'){ (ev.snapshot.accounts||[]).forEach(a=>jobAccts[a.index]=a); (ev.snapshot.logs||[]).forEach(logLine); renderSummary(ev.snapshot.batch_summary); renderProgress(); }
     else if(ev.type==='log') logLine(ev);
     else if(ev.type==='account'){ jobAccts[ev.account.index]=ev.account; renderProgress(); }
     else if(ev.type==='summary'){ renderSummary(ev.summary); }
-    else if(ev.type==='done'){ es.close(); es=null; $('startBtn').disabled=false; if($('logLive')) $('logLive').style.display='none'; toast('批次完成'); loadAccounts(); loadJobs(); }
+    else if(ev.type==='done'){ onRegisterJobDone(ev.status||'done'); }
   };
   es.onerror=()=>logLine({level:'WARNING',msg:'SSE 连接中断（任务可能已结束）'});
 }
@@ -1309,13 +1773,13 @@ async function runBatchRescue(emails){
     $('btnRescueSel').disabled=false;
     return;
   }
-  const proxy=($('proxy')&&$('proxy').value.trim())||'';
-  const usePool=$('useProxyPool')&&$('useProxyPool').checked;
-  if(!usePool&&!proxy) rescueLog('WARNING','未启用代理池且未填备用代理，将使用 rescue_login 默认模板');
+  const proxySelection=($('regProxySelection')&&$('regProxySelection').value)||'auto';
+  const usePool=proxySelection==='auto'||proxySelection.startsWith('provider:');
+  if(!usePool) rescueLog('WARNING','未选择代理池分配，将使用 rescue_login 默认模板');
   if(noPwd) rescueLog('WARNING', `${noPwd} 个缺密码，已跳过`);
   rescueLog('INFO', `开始重登 ${list.length} 个（${usePool?'代理池':'单代理'}，并发 1）`);
   try {
-    const j=await jpost('/api/rescue',{emails:list.map(a=>a.email), proxy, use_proxy_pool:usePool, concurrency:1});
+    const j=await jpost('/api/rescue',{emails:list.map(a=>a.email), proxy_selection:proxySelection, use_proxy_pool:usePool, concurrency:1});
     if(!j.implemented){
       rescueLog('ERROR', j.message||'重登不可用');
       toast(j.message||'重登不可用');
@@ -1523,9 +1987,30 @@ async function verifyCombo(){
 function opsMsg(kind,text){ const m=$('opsMsg'); m.className='msgbox show '+kind; m.textContent=text; }
 
 $('startBtn').onclick=startRegister;
+if($('stopBtn')) $('stopBtn').onclick=()=>void stopRegister();
+if($('linkToCaptcha')) $('linkToCaptcha').onclick=(e)=>{ e.preventDefault(); navToSection('captcha'); };
+if($('linkToProxy')) $('linkToProxy').onclick=(e)=>{ e.preventDefault(); navToSection('proxies'); };
+if($('btnRefreshCaptcha')) $('btnRefreshCaptcha').onclick=()=>{ loadCaptchaSettings(); toast('已刷新'); };
+if($('captchaProviderList')) $('captchaProviderList').onclick=async(e)=>{
+  const edit=e.target.closest('[data-captcha-edit]');
+  if(edit){ void openCaptchaEditModal(edit.dataset.captchaEdit); return; }
+  const def=e.target.closest('[data-captcha-default]');
+  if(def){
+    const j=await jpost('/api/settings',{default_captcha_provider:def.dataset.captchaDefault});
+    if(!j.ok){ toast(j.detail||'设置失败'); return; }
+    toast('已设为默认');
+    await loadCaptchaSettings();
+  }
+};
+$('captchaModalCancel').onclick=closeCaptchaEditModal;
+$('captchaModalSave').onclick=()=>void saveCaptchaModal();
+$('captchaModalEye').onclick=()=>setCaptchaKeyVisible(($('captchaModalKey')||{}).type==='password');
+$('captchaEditModal').onclick=(e)=>{ if(e.target===$('captchaEditModal')) closeCaptchaEditModal(); };
+setCaptchaKeyVisible(false);
 if($('logCopyBtn')) $('logCopyBtn').onclick=()=>void copyRegisterLogs();
 $('verifyBtn').onclick=verifyCombo;
 $('globalRefresh').onclick=()=>{ loadConfig(); loadAccounts(); loadJobs(); health(); toast('已刷新'); };
+if($('registerPageRefresh')) $('registerPageRefresh').onclick=()=>{ loadConfig(); loadRegisterOptions(); health(); toast('已刷新'); };
 $('imapEnableBtn').onclick=async()=>{ const j=await jpost('/api/imap-enable'); toast(j.message||'IMAP 未实现'); opsMsg('warn',j.message); };
 $('keepaliveAllBtn').onclick=async()=>{ toast('开始保活全部账号'); await runKeepalive(null); };
 async function runKeepalive(emails){
@@ -1957,7 +2442,12 @@ $('proxyBindBody').addEventListener('click',async(e)=>{
   loadProxyPool();
 });
 
+initNavIcons();
 loadConfig(); health(); loadAccounts(); loadJobs(); loadProxyPool();
+if(document.querySelector('.nav.active')?.dataset.sec==='register'){
+  document.querySelector('.content')?.classList.add('register-mode');
+  document.querySelector('.main')?.classList.add('register-mode');
+}
 </script>
 </body>
 </html>
