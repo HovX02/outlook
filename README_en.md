@@ -18,6 +18,8 @@ Pure-protocol Microsoft Outlook bulk registration · PerimeterX solver · Web co
   &nbsp;·&nbsp;
   <a href="#quick-start">Quick start</a>
   &nbsp;·&nbsp;
+  <a href="#proxy-pool--ipwo-residential">Proxy</a>
+  &nbsp;·&nbsp;
   <a href="scripts/ANTIBAN.md">Anti-ban guide</a>
   &nbsp;·&nbsp;
   <a href="README.md">中文</a>
@@ -192,6 +194,14 @@ OUTLOOK_CF_WORKER_API_URL=https://apimail.your-domain.com
 ```
 
 Do **not** bulk-skip proofs in production (`OUTLOOK_SKIP_PROOFS=1` is debug-only).
+
+### Proxy pool · <a href="https://www.ipwo.net/?ref=githubregister"><u>IPWO</u></a> (residential)
+
+<a href="https://www.ipwo.net/?ref=githubregister"><img src="assets/screenshots/ipwo-banner.png" alt="IPWO residential proxy" width="100%" /></a>
+
+<a href="https://www.ipwo.net/?ref=githubregister"><u>https://www.ipwo.net/?ref=githubregister</u></a>
+
+IPWO residential proxies cover **195+** regions with static and rotating IPs, **HTTP / HTTPS / SOCKS5**, suited for account registration, browser automation, and web data workflows. **Group members:** no-threshold **2GB dynamic proxy** bonus. Discount code: **`0204`**
 
 ## Environment variables
 

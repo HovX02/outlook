@@ -18,6 +18,8 @@ Microsoft Outlook 纯协议批量注册 · PerimeterX 打码 · Web 控制台 ·
   &nbsp;·&nbsp;
   <a href="#快速开始">快速开始</a>
   &nbsp;·&nbsp;
+  <a href="#代理池">代理推荐</a>
+  &nbsp;·&nbsp;
   <a href="scripts/ANTIBAN.md">防封策略</a>
   &nbsp;·&nbsp;
   <a href="README_en.md">English</a>
@@ -215,6 +217,16 @@ OUTLOOK_CF_WORKER_API_URL=https://apimail.your-domain.com
 - Web 控制台「代理池」页管理，数据存 SQLite（`accounts/outlook.db`）
 - 支持轮换网关模板（`{sid}` 占位符）、国家标签、预检、成功率统计
 - CLI 仍可读 `HTTP_PROXY` 环境变量作兜底
+
+#### 住宅代理推荐 · <a href="https://www.ipwo.net/?ref=githubregister"><u>IPWO</u></a>
+
+<a href="https://www.ipwo.net/?ref=githubregister"><img src="assets/screenshots/ipwo-banner.png" alt="IPWO 住宅代理" width="100%" /></a>
+
+<a href="https://www.ipwo.net/?ref=githubregister"><u>https://www.ipwo.net/?ref=githubregister</u></a>
+
+IPWO 住宅代理覆盖全球 **195+** 地区动静态 IP 资源，支持 **http / https / socks5** 协议，为自动化注册和多账号任务提供更多网络环境选择。适用于账号注册、浏览器自动化、Web 数据处理等场景，灵活配置不同地区代理。
+
+**重点：** 进作者群均有无门槛 **2GB 动态代理** 相送！优惠折扣码：**`0204`**
 
 ## 环境变量
 

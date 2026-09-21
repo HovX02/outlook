@@ -18,6 +18,8 @@
   &nbsp;·&nbsp;
   <a href="#bắt-đầu-nhanh">Bắt đầu nhanh</a>
   &nbsp;·&nbsp;
+  <a href="#proxy-pool--ipwo">Proxy đề xuất</a>
+  &nbsp;·&nbsp;
   <a href="scripts/ANTIBAN.md">Chống ban</a>
   &nbsp;·&nbsp;
   <a href="README.md">中文</a>
@@ -144,6 +146,14 @@ REG_PROXY_RETRIES=6 python main.py --count 10 --concurrency 2 \
 | `graph` | 4 đoạn: `email----password----client_id----refresh_token` |
 | `graph_recovery` / `login_exe` | 6 đoạn + email/mật khẩu khôi phục |
 | `dual` | 6 đoạn + token SSO thứ hai |
+
+### Proxy pool · <a href="https://www.ipwo.net/?ref=githubregister"><u>IPWO</u></a> (residential)
+
+<a href="https://www.ipwo.net/?ref=githubregister"><img src="assets/screenshots/ipwo-banner.png" alt="IPWO residential proxy" width="100%" /></a>
+
+<a href="https://www.ipwo.net/?ref=githubregister"><u>https://www.ipwo.net/?ref=githubregister</u></a>
+
+Proxy residential IPWO phủ **195+** khu vực, IP tĩnh/động, hỗ trợ **HTTP / HTTPS / SOCKS5** — phù hợp đăng ký tài khoản, tự động hóa trình duyệt và xử lý dữ liệu web. **Thành viên nhóm tác giả:** tặng **2GB proxy động** không điều kiện. Mã giảm giá: **`0204`**
 
 ## Biến môi trường
 
