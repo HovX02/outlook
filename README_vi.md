@@ -121,7 +121,7 @@ cp .env.example .env
 ### Web console (khuyến nghị)
 
 ```bash
-.venv/bin/uvicorn webapp.server:app --host 0.0.0.0 --port 8890
+.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8890
 ```
 
 Mở `http://127.0.0.1:8890` → thêm proxy → đăng ký batch → xem/export combo.

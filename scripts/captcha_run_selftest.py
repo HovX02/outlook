@@ -13,8 +13,8 @@ load_dotenv()
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from outlook_api_reg.captcha import get_captcha_run_balance, solve_perimeterx_captcha_run
-from outlook_api_reg.px_cookies import solver_context
+from service.captcha.captcha_service import get_captcha_run_balance, solve_perimeterx_captcha_run
+from service.risk.px_cookies import solver_context
 
 
 def main() -> int:

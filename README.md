@@ -130,7 +130,7 @@ cp .env.example .env
 ### Web 控制台（推荐）
 
 ```bash
-.venv/bin/uvicorn webapp.server:app --host 0.0.0.0 --port 8890
+.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8890
 ```
 
 浏览器打开 `http://127.0.0.1:8890`：
@@ -248,29 +248,26 @@ IPWO 住宅代理覆盖全球 **195+** 地区动静态 IP 资源，支持 **http
 
 ```
 outlook-auto-register/
-├── main.py                     # CLI 入口
-├── outlook_api_reg/
-│   ├── register.py             # 主编排
-│   ├── bootstrap.py            # OAuth + PX 预加载
-│   ├── api.py                  # API + msaRiskVerifySignature
-│   ├── risk.py                 # 两步 risk/verify
-│   ├── captcha.py              # captcha.run / CapSolver / EzCaptcha
-│   ├── post_register.py        # slt + proofs + Passkey + 邮件 OAuth
-│   ├── external_recovery_pool.py
-│   ├── cf_domain_mail.py       # Cloudflare catch-all 收码
-│   ├── database.py             # SQLite 统一存储
-│   ├── proxy_pool.py           # 代理池管理
-│   ├── graph_mail.py           # Graph / REST 读信
-│   └── constants.py            # 协议常量
-├── px_solver/                  # PerimeterX 打码模块
-├── webapp/
-│   ├── server.py               # FastAPI 控制台
-│   └── static/index.html
-├── scripts/
-│   ├── ANTIBAN.md              # 防封策略
-│   └── keepalive.py
-├── assets/screenshots/         # README 截图
-└── accounts/                   # 生成的账号数据（gitignored）
+├── main.py                     # 唯一入口：FastAPI（uvicorn）+ CLI（带参数时）
+├── controller/                 # HTTP 路由（/api/*）
+├── service/
+│   ├── registration/           # 注册编排 + cli.py
+│   ├── risk/ captcha/ account/ resource/
+│   ├── browser/                # Roxy + tools/*.swift
+│   ├── web/                    # Job 运行时 / SSE
+│   └── px_solver/              # PerimeterX 本地求解
+├── dao/ model/ config/ common/
+├── frontend/static/index.html
+├── docker/
+├── scripts/                    # 运维 CLI（check_imap、exchange_code、keepalive…）
+└── tests/
+```
+
+常用脚本：
+
+```bash
+python scripts/check_imap.py "email----pwd----client_id----refresh_token"
+python scripts/exchange_code.py --authorize-url
 ```
 
 ## 注意事项

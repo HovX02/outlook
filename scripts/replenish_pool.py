@@ -28,14 +28,14 @@ socket.setdefaulttimeout(25)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from outlook_api_reg.graph_mail import probe_token  # noqa: E402
-from outlook_api_reg.proof_pool import pool_path  # noqa: E402
+from service.account.graph_mail import probe_token  # noqa: E402
+from service.resource.recovery.proof_pool import pool_path  # noqa: E402
 
 
 def _proxy_url(raw: str) -> str:
     if not raw:
         return ""
-    from outlook_api_reg.proxy_utils import parse_proxy
+    from service.resource.proxy.proxy_utils import parse_proxy
 
     cfg = parse_proxy(raw)
     return cfg.url if cfg else ""

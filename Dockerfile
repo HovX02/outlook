@@ -14,14 +14,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt px_solver/docker/requirements-linux.txt ./
+COPY requirements.txt docker/requirements-linux.txt ./
 RUN pip install --no-cache-dir -r requirements.txt -r requirements-linux.txt \
     && python -m patchright install --with-deps chromium
 
 COPY . /app/
-RUN chmod +x /app/px_solver/docker/entrypoint.sh \
+RUN chmod +x /app/docker/entrypoint.sh \
     && mkdir -p /app/data /app/accounts
 
 EXPOSE 8890
-ENTRYPOINT ["/app/px_solver/docker/entrypoint.sh"]
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
 CMD ["webapp"]

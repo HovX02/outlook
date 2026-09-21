@@ -18,8 +18,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from outlook_api_reg.captcha import build_captcha_run_payload_exe, build_captcha_run_payload_legacy
-from outlook_api_reg.px_cookies import solver_context
+from service.captcha.captcha_service import build_captcha_run_payload_exe, build_captcha_run_payload_legacy
+from service.risk.px_cookies import solver_context
 
 DEFAULT_EXE = os.path.expanduser("~/Downloads/微软注册机账密代理版26.7.11.vmp.exe")
 
@@ -153,7 +153,7 @@ def main() -> int:
 
         load_dotenv()
         os.environ.setdefault("CAPTCHA_RUN_DEBUG", "1")
-        from outlook_api_reg.captcha import solve_perimeterx_captcha_run
+        from service.captcha.captcha_service import solve_perimeterx_captcha_run
 
         print(f"\n## 实发 captcha.run mode={args.mode}（exe 模板）")
         sol = solve_perimeterx_captcha_run(ctx, mode=args.mode, max_wait=90)

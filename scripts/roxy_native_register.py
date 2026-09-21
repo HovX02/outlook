@@ -36,17 +36,17 @@ load_dotenv(PROJECT_DIR / ".env")
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from outlook_api_reg.constants import locale_for_country, signup_url_for_country
-from outlook_api_reg.macos_native_ui import (
+from config.constants import locale_for_country, signup_url_for_country
+from service.browser.macos_native_ui import (
     NativeUIError,
     RoxyNativeUI,
     accessibility_trusted,
     responsible_app_hint,
 )
-from outlook_api_reg.account_store import save_register_result
-from outlook_api_reg.cf_domain_mail import CFDomainMailClient, allocate_address
-from outlook_api_reg.proxy_utils import preflight_proxy, rewrite_ipwo_zone_country
-from outlook_api_reg.roxy_browser import (
+from service.account.account_store import save_register_result
+from service.resource.recovery.cf_domain_mail import CFDomainMailClient, allocate_address
+from service.resource.proxy.proxy_utils import preflight_proxy, rewrite_ipwo_zone_country
+from service.browser.roxy_browser import (
     RoxyBrowserClient,
     infer_zone_country,
     roxy_cdp_session,
@@ -1360,7 +1360,7 @@ def main() -> int:
         raise SystemExit(
             "[native] 缺少 macOS「辅助功能」授权，原生键盘无法输入（按键会被静默丢弃）。\n"
             f"  请到 系统设置 → 隐私与安全性 → 辅助功能，勾选 {app}，然后【完全退出并重开】该 App。\n"
-            "  自检：python -c \"from outlook_api_reg.macos_native_ui import accessibility_trusted as t; print(t())\"\n"
+            "  自检：python -c \"from service.browser.macos_native_ui import accessibility_trusted as t; print(t())\"\n"
             "  须打印 True 才能继续。"
         )
     if args.no_steal_focus:

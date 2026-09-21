@@ -26,11 +26,11 @@ load_dotenv(PROJECT_DIR / ".env")
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from outlook_api_reg.account_store import save_register_result
-from outlook_api_reg.cf_domain_mail import CFDomainMailClient, allocate_address
-from outlook_api_reg.models import RegisterResult
-from outlook_api_reg.post_register import _config_str, _is_consent_page
-from outlook_api_reg.roxy_browser import RoxyBrowserClient, roxy_cdp_session
+from service.account.account_store import save_register_result
+from service.resource.recovery.cf_domain_mail import CFDomainMailClient, allocate_address
+from model.entity.register_models import RegisterResult
+from service.registration.post_register_service import _config_str, _is_consent_page
+from service.browser.roxy_browser import RoxyBrowserClient, roxy_cdp_session
 
 MAIL_CLIENT_ID = "9e5f94bc-e8a4-4e73-b8be-63364c29d753"
 GRAPH_SCOPE = (

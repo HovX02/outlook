@@ -15,18 +15,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import requests
 
-from outlook_api_reg.api import build_msa_risk_verify_signature, check_available_signin_name, risk_initialize, risk_verify
-from outlook_api_reg.bootstrap import bootstrap_session, preload_perimeterx
-from outlook_api_reg.captcha import (
+from common.msa_api import build_msa_risk_verify_signature, check_available_signin_name, risk_initialize, risk_verify
+from service.registration.bootstrap_service import bootstrap_session, preload_perimeterx
+from service.captcha.captcha_service import (
     build_captcha_run_payload,
     build_captcha_run_payload_legacy,
     solve_perimeterx_captcha_run,
 )
-from outlook_api_reg.http_session import OutlookHttpSession
-from outlook_api_reg.models import AccountInfo
-from outlook_api_reg.px_cookies import build_px_metadata, solver_context
-from outlook_api_reg.register import _pick_available_email, _random_email_prefix
-from outlook_api_reg.risk import _acquire_silent_px
+from common.http_session import OutlookHttpSession
+from model.entity.register_models import AccountInfo
+from service.risk.px_cookies import build_px_metadata, solver_context
+from service.registration.register_service import _pick_available_email, _random_email_prefix
+from service.risk.risk_service import _acquire_silent_px
 
 
 def _poll_raw(task_id: str, key: str, base: str, n: int = 8) -> None:

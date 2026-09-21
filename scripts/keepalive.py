@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import requests  # noqa: E402
 
-from outlook_api_reg.graph_mail import (  # noqa: E402
+from service.account.graph_mail import (  # noqa: E402
     GRAPH_BASE,
     OUTLOOK_REST_BASE,
     _resource_of,
@@ -46,7 +46,7 @@ _print_lock = threading.Lock()
 def _proxy_url(raw: str) -> str:
     if not raw:
         return ""
-    from outlook_api_reg.proxy_utils import parse_proxy
+    from service.resource.proxy.proxy_utils import parse_proxy
 
     cfg = parse_proxy(raw)
     return cfg.url if cfg else ""

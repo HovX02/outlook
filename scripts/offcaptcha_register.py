@@ -26,8 +26,8 @@ ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 sys.path.insert(0, str(ROOT))
 
-from outlook_api_reg import offcaptcha  # noqa: E402
-from outlook_api_reg.register import register_one, save_account  # noqa: E402
+from service import offcaptcha  # noqa: E402
+from service.registration.register_service import register_one, save_account  # noqa: E402
 
 
 def main() -> int:

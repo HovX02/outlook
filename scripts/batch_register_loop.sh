@@ -15,7 +15,7 @@ MAX="${1:-25}"
 pick_proxy() {
   python3 <<'PY'
 import random, re
-from outlook_api_reg.proxy_utils import (
+from service.resource.proxy.proxy_utils import (
     rewrite_ipwo_zone_country, random_sid, preflight_proxy, probe_exit_stability,
 )
 lines = [l.strip() for l in open("proxies_ipwo.txt") if l.strip() and not l.startswith("#")]

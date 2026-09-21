@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from outlook_api_reg.database import backup_database, db_path, db_status  # noqa: E402
+from dao.outlook_dao import backup_database, db_path, db_status  # noqa: E402
 
 
 def main() -> int:

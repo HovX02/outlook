@@ -14,8 +14,8 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from outlook_api_reg.constants import GRAPH_MAIL_SCOPE, MAIL_CLIENT_ID, MAIL_REDIRECT_URI
-from outlook_api_reg.proxy_utils import parse_proxy
+from config.constants import GRAPH_MAIL_SCOPE, MAIL_CLIENT_ID, MAIL_REDIRECT_URI
+from service.resource.proxy.proxy_utils import parse_proxy
 
 SHOT_DIR = Path(os.environ.get("RESCUE_SHOT_DIR", "/tmp/rescue_browser_shots"))
 

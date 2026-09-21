@@ -28,22 +28,22 @@ from dotenv import load_dotenv
 
 load_dotenv(_ROOT / ".env")
 
-from outlook_api_reg.api import risk_initialize, risk_verify
-from outlook_api_reg.bootstrap import preload_px_challenge_assets
-from outlook_api_reg.constants import GRAPH_MAIL_SCOPE, MAIL_CLIENT_ID, MAIL_REDIRECT_URI
-from outlook_api_reg.graph_mail import probe_token
-from outlook_api_reg.http_session import OutlookHttpSession
-from outlook_api_reg.models import SignupSession
-from outlook_api_reg.post_register import (
+from common.msa_api import risk_initialize, risk_verify
+from service.registration.bootstrap_service import preload_px_challenge_assets
+from config.constants import GRAPH_MAIL_SCOPE, MAIL_CLIENT_ID, MAIL_REDIRECT_URI
+from service.account.graph_mail import probe_token
+from common.http_session import OutlookHttpSession
+from model.entity.register_models import SignupSession
+from service.registration.post_register_service import (
     _config_str,
     exchange_code_for_token,
     fetch_mail_oauth_code,
     follow_auto_post_forms,
 )
-from outlook_api_reg.proxy_utils import expand_proxy_template, parse_proxy, preflight_proxy
-from outlook_api_reg.px_collector import load_challenge_iframe, post_px_beacon, post_px_bundle, warmup_px_session
-from outlook_api_reg.px_cookies import build_challenge_solution, build_px_metadata
-from outlook_api_reg.risk import _acquire_silent_px, _solve_px_protocol, load_human_sensor
+from service.resource.proxy.proxy_utils import expand_proxy_template, parse_proxy, preflight_proxy
+from service.risk.px_collector import load_challenge_iframe, post_px_beacon, post_px_bundle, warmup_px_session
+from service.risk.px_cookies import build_challenge_solution, build_px_metadata
+from service.risk.risk_service import _acquire_silent_px, _solve_px_protocol, load_human_sensor
 
 logger = logging.getLogger("rescue_login")
 
@@ -367,7 +367,7 @@ def _handle_unfamiliar_location(
     client = None
     before_ids: set[str] = set()
     try:
-        from outlook_api_reg.cf_domain_mail import CFDomainMailClient, load_config
+        from service.resource.recovery.cf_domain_mail import CFDomainMailClient, load_config
 
         client = CFDomainMailClient(load_config())
         before_ids = client.snapshot_ids(recovery_email)
@@ -502,7 +502,7 @@ def _load_invalid_file(path: Path) -> list[dict[str, str]]:
 def _load_account(email: str) -> tuple[Optional[Path], dict[str, Any]]:
     email = email.strip().lower()
     try:
-        from outlook_api_reg.account_store import get_account
+        from service.account.account_store import get_account
     except ImportError:
         get_account = None  # type: ignore[assignment]
     if get_account is not None:
@@ -597,7 +597,7 @@ def persist_rescue_outcome(
     if not email:
         return None
     try:
-        from outlook_api_reg.account_store import write_rescue_outcome
+        from service.account.account_store import write_rescue_outcome
 
         for key in ("recovery_email", "recovery_password", "proofs_method", "proofs_satisfied"):
             if out.get(key):
@@ -875,7 +875,7 @@ def _try_otc_login(http: OutlookHttpSession, resp, email: str, recovery_email: s
         logger.info("无 OTC 可用 proof，跳过验证码登录")
         return None
     try:
-        from outlook_api_reg.cf_domain_mail import CFDomainMailClient, load_config
+        from service.resource.recovery.cf_domain_mail import CFDomainMailClient, load_config
     except Exception as exc:  # noqa: BLE001
         logger.warning("CF 收码模块不可用: %s", exc)
         return None

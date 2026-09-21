@@ -130,7 +130,7 @@ cp .env.example .env
 ### Web console (recommended)
 
 ```bash
-.venv/bin/uvicorn webapp.server:app --host 0.0.0.0 --port 8890
+.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8890
 ```
 
 Open `http://127.0.0.1:8890`:
@@ -219,13 +219,10 @@ See [`.env.example`](.env.example) for the full list.
 
 ```
 outlook-auto-register/
-├── main.py
-├── outlook_api_reg/
-├── px_solver/
-├── webapp/
-├── scripts/
-├── assets/screenshots/
-└── accounts/          # generated data (gitignored)
+├── main.py              # sole entry: FastAPI + CLI (with args)
+├── controller/ service/ dao/ model/ config/ common/
+├── frontend/static/ docker/ scripts/ tests/
+└── accounts/            # generated data (gitignored)
 ```
 
 ## Notes

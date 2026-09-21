@@ -15,13 +15,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from outlook_api_reg.proxy_utils import (  # noqa: E402
+from service.resource.proxy.proxy_utils import (  # noqa: E402
     preflight_proxy,
     probe_exit_stability,
     random_sid,
     rewrite_ipwo_zone_country,
 )
-from outlook_api_reg.register import register_one, save_account  # noqa: E402
+from service.registration.register_service import register_one, save_account  # noqa: E402
 
 LOG_DIR = Path("/tmp")
 SUCCESS_PATH = LOG_DIR / "outlook_reg_success.json"

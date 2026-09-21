@@ -39,7 +39,20 @@ SKIP_DIRS = {
     "data",
     "cookies",
     "captures",
-    "google_reg",
+    # 本地 IDE / Agent / 规格（常含代理 combo 样例）
+    ".idea",
+    ".cursor",
+    ".kiro",
+    ".ace-tool",
+    ".vscode",
+    ".windsurf",
+    # 测试 / 本地探测
+    "tests",
+    "scripts/px_dev",
+    "shots",
+    "screenshots",
+    "browser_shots",
+    "rescue_shots",
 }
 
 SKIP_FILES = {
@@ -93,6 +106,8 @@ ALLOW_SUBSTRINGS = (
     "REDACTED",
     "xxxx",
     "secret",  # 单独作为密码占位符（配合 user_custom_zone 等）
+    "test-user@outlook.com",
+    "test@outlook.com",
     "pass-US-{sid}",
     "pass-US-xxxx",
     "Bearer key",

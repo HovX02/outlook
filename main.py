@@ -1,138 +1,85 @@
 #!/usr/bin/env python3
-"""Outlook Fluent API 注册 CLI。"""
-
+"""Outlook API 注册控制台 — FastAPI 入口 + CLI 薄包装。"""
 from __future__ import annotations
 
-import argparse
 import logging
+import os
 import sys
-from datetime import datetime
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from outlook_api_reg.constants import OUTLOOK_EMAIL_DOMAINS
-from outlook_api_reg.register import register_one, save_account
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from controller.account_controller import router as account_router
+from controller.database_controller import router as database_router
+from controller.health_controller import router as health_router
+from controller.proxy_controller import router as proxy_router
+from controller.register_controller import router as register_router
+from controller.rescue_controller import router as rescue_router
+from controller.settings_controller import router as settings_router
+from controller.verify_controller import router as verify_router
+from service.web import runtime as rt
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Outlook 新版 Fluent API 协议注册")
-    parser.add_argument("--prefix", help="邮箱前缀（默认随机）")
-    parser.add_argument("--domain", default="@outlook.com", help="邮箱后缀")
-    parser.add_argument("--country", default="US", help="国家代码（建议与代理地区一致，默认 US）")
-    parser.add_argument("--proxy", help="HTTP 代理，支持 http://user:pass@host:port 或 host:port:user:pass")
-    parser.add_argument(
-        "--px-mode",
-        choices=["solver", "local", "offcaptcha"],
-        default="solver",
-        help="PX 解法：solver=captcha.run/EzCaptcha/CapSolver；"
-             "local=本地 SwiftShader；offcaptcha=offcaptcha.com PX invisible+press",
-    )
-    parser.add_argument("--skip-login", action="store_true", help="仅注册，不完成后续 OAuth 登录（则无 refresh_token）")
-    parser.add_argument(
-        "--no-mail-token",
-        action="store_true",
-        help="注册后不换取 refresh_token（默认会取，用于生成四段格式）",
-    )
-    parser.add_argument("--output", default="accounts", help="账号保存目录")
-    parser.add_argument("--count", type=int, default=1, help="批量注册数量（>1 走并发批量）")
-    parser.add_argument("--concurrency", type=int, default=2, help="批量并发度（默认 2，保守值防同 IP/爆发式批量信号；1 最稳）")
-    parser.add_argument("--jitter-min", type=float, default=None, help="相邻账号注册启动最小间隔秒（默认 3，防爆发式注册；0 关闭）")
-    parser.add_argument("--jitter-max", type=float, default=None, help="相邻账号注册启动最大间隔秒（默认 8）")
-    parser.add_argument("-v", "--verbose", action="store_true", help="详细日志")
-    args = parser.parse_args()
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    rt._startup_log()
+    yield
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%H:%M:%S",
-    )
 
-    if args.domain not in OUTLOOK_EMAIL_DOMAINS:
-        print(f"警告: 后缀 {args.domain} 不在推荐列表，仍尝试注册")
+app = FastAPI(title="Outlook API 注册控制台", version="2.0.0", lifespan=lifespan)
 
-    # local = 本地浏览器收割 PX token，完全不走第三方打码平台。
-    # risk.py._solve_px_protocol 读 PX_SOLVER 决定后端，这里显式置位。
-    if args.px_mode == "local":
-        import os
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.environ.get("CORS_ALLOW_ORIGINS", "*").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-        os.environ["PX_SOLVER"] = "swiftshader"
-    elif args.px_mode == "offcaptcha":
-        import os
+for _router in (
+    health_router,
+    settings_router,
+    register_router,
+    account_router,
+    verify_router,
+    rescue_router,
+    proxy_router,
+    database_router,
+):
+    app.include_router(_router)
 
-        os.environ["PX_SOLVER"] = "offcaptcha"
 
-    print("=== Outlook Fluent API 注册 ===")
-    print(f"PX 模式: {args.px_mode}")
-    if args.proxy:
-        print(f"代理: {args.proxy}")
+@app.get("/api/ping")
+def ping() -> JSONResponse:
+    return JSONResponse({"ok": True})
 
-    if args.count > 1:
-        from outlook_api_reg.batch import register_batch_iter
 
-        print(f"批量模式: count={args.count} concurrency={args.concurrency}")
-        cli_batch = datetime.now().strftime("CLI-%m%d-%H%M")
-        for ev in register_batch_iter(
-            args.count,
-            concurrency=args.concurrency,
-            email_prefix=args.prefix,
-            email_domain=args.domain,
-            country=args.country,
-            proxy=args.proxy,
-            px_mode=args.px_mode,
-            skip_post_login=args.skip_login,
-            fetch_mail_token=not args.no_mail_token,
-            output_dir=args.output,
-            batch_id=cli_batch,
-            batch_label=cli_batch,
-            jitter_min=args.jitter_min,
-            jitter_max=args.jitter_max,
-        ):
-            if ev["type"] == "result":
-                tag = "OK" if ev["success"] else "FAIL"
-                print(f"  [{tag}] #{ev['index']} {ev['email']} "
-                      f"rt={ev['refresh_token_present']} login={ev['login_token_present']} "
-                      f"{ev['elapsed']}s {ev.get('error','')[:60]}")
-                if ev.get("combo"):
-                    print(f"       {ev['combo_dual'] or ev['combo']}")
-            elif ev["type"] == "done":
-                print(f"\n批量完成: {ev['ok']}/{ev['total']} 成功, 总耗时 {ev['elapsed']}s, "
-                      f"单号均耗时 {ev['avg_per_account']}s")
-                print(f"各阶段平均耗时(s): {ev['avg_stage_timings']}")
-        return 0
+def _run_cli() -> int:
+    from service.registration.cli import main as cli_main
 
-    result = register_one(
-        email_prefix=args.prefix,
-        email_domain=args.domain,
-        country=args.country,
-        proxy=args.proxy,
-        px_mode=args.px_mode,
-        skip_post_login=args.skip_login,
-        fetch_mail_token=not args.no_mail_token,
-    )
-
-    if result.success:
-        cli_batch = datetime.now().strftime("CLI-%m%d-%H%M")
-        path = save_account(result, args.output, batch_id=cli_batch, batch_label=cli_batch)
-        print("\n注册成功!")
-        print(f"  邮箱: {result.email}")
-        print(f"  密码: {result.password}")
-        if result.refresh_token:
-            print(f"  refresh_token: {result.refresh_token[:40]}...（完整见文件）")
-        else:
-            print("  refresh_token: (未获取；如加了 --skip-login 则不会取)")
-        print(f"  保存: {path}")
-        print("\n四段格式（email----password----client_id----refresh_token）:")
-        print(result.to_combo())
-        if result.login_refresh_token:
-            print("\n六段格式（+ 登录授权令牌 login_client_id----login_refresh）:")
-            print(result.to_combo(dual=True))
-        return 0
-
-    print(f"\n注册失败: {result.error}")
-    return 1
+    return cli_main()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    if len(sys.argv) > 1 and sys.argv[1] not in ("-m",):
+        sys.exit(_run_cli())
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host=os.environ.get("HOST", "0.0.0.0"),
+        port=int(os.environ.get("PORT", "8890")),
+        reload=os.environ.get("RELOAD", "").lower() in ("1", "true", "yes"),
+    )
