@@ -25,6 +25,8 @@ Microsoft Outlook 纯协议批量注册 · PerimeterX 打码 · Web 控制台 ·
   <a href="README_en.md">English</a>
   &nbsp;·&nbsp;
   <a href="README_vi.md">Tiếng Việt</a>
+  &nbsp;·&nbsp;
+  <a href="#交流群">Telegram</a>
 </p>
 
 <img src="assets/screenshots/批次注册.png" alt="Outlook 批次注册实时日志" width="92%" />
@@ -282,10 +284,23 @@ python scripts/exchange_code.py --authorize-url
 
 详见 [`scripts/ANTIBAN.md`](scripts/ANTIBAN.md)——代理选型、proofs 策略、并发与抖动、产出自检等。
 
+## 交流群
+
+Telegram 群组：[https://t.me/+iPUzZb_YAH45ZmVh](https://t.me/+iPUzZb_YAH45ZmVh)
+
+<div align="center">
+
+<img src="assets/screenshots/telegram-group-qr.jpg" alt="Telegram 交流群二维码" width="260" />
+
+<p>扫码或点击上方链接加入 Telegram 交流群</p>
+
+</div>
+
 ## Links
 
 | 链接 | 说明 |
 |---|---|
+| [Telegram 交流群](https://t.me/+iPUzZb_YAH45ZmVh) | 扫码见上文「交流群」 |
 | QQ 群 **1040827527** | 交流讨论 |
 | [LINUX DO](https://linux.do/) | 社区讨论 |
 | [English](README_en.md) · [Tiếng Việt](README_vi.md) | 多语言文档 |
