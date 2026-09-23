@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -54,14 +55,6 @@ def api_key() -> str:
 
 def api_base() -> str:
     return (os.environ.get("OFFCAPTCHA_API_BASE") or OFFCAPTCHA_API_BASE).rstrip("/")
-
-
-def soft_id() -> str:
-    return (
-        os.environ.get("OFFCAPTCHA_SOFT_ID")
-        or os.environ.get("OFFCAPTCHA_SOFTID")
-        or OFFCAPTCHA_SOFT_ID
-    ).strip()
 
 
 def soft_id() -> str:
@@ -116,8 +109,29 @@ def _status_of(data: dict[str, Any]) -> str:
     return str(data.get("status") or data.get("state") or "").strip().lower()
 
 
+def _cookie_values(raw: Any) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if isinstance(raw, dict):
+        for name, value in raw.items():
+            if name and value is not None:
+                values[str(name)] = str(value)
+        return values
+    if not isinstance(raw, list):
+        return values
+    for item in raw:
+        record: Any = item
+        if isinstance(item, str):
+            try:
+                record = json.loads(item)
+            except json.JSONDecodeError:
+                continue
+        if isinstance(record, dict) and record.get("name") and record.get("value") is not None:
+            values[str(record["name"])] = str(record["value"])
+    return values
+
+
 def _px_from_solution(sol: dict[str, Any]) -> dict[str, str]:
-    cookies = sol.get("cookies") if isinstance(sol.get("cookies"), dict) else {}
+    cookies = _cookie_values(sol.get("cookies"))
     px3 = str(sol.get("px3") or sol.get("_px3") or cookies.get("_px3") or "")
     pxde = str(sol.get("pxde") or sol.get("_pxde") or cookies.get("_pxde") or "")
     pxvid = str(
@@ -253,6 +267,7 @@ def solve_invisible(
     session_id: str,
     fpt_url: str,
     proxy: Optional[str],
+    website_key: str = PX_APP_ID,
     user_agent: str = "",
 ) -> dict[str, Any]:
     payload = build_invisible_payload(
@@ -260,6 +275,7 @@ def solve_invisible(
         session_id=session_id,
         fpt_url=fpt_url,
         proxy=proxy,
+        website_key=website_key,
         user_agent=user_agent,
     )
     task_id = create_task(payload)
@@ -282,6 +298,7 @@ def solve_press(
     uuid: str,
     vid: str,
     proxy: Optional[str],
+    website_key: str = PX_APP_ID,
     user_agent: str = "",
     iframe_url: str = "",
 ) -> dict[str, str]:
@@ -292,6 +309,7 @@ def solve_press(
         uuid=uuid,
         vid=vid,
         proxy=proxy,
+        website_key=website_key,
         user_agent=user_agent,
         iframe_url=iframe_url,
     )

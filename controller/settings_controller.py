@@ -27,6 +27,7 @@ rescue_proxy_raw = rescue_adapter.rescue_proxy_raw
 count_rescues_from_log = rescue_adapter.count_rescues_from_log
 
 router = APIRouter()
+_captcha_provider_meta = rt._captcha_provider_meta
 
 @router.get("/api/config")
 def get_config() -> JSONResponse:

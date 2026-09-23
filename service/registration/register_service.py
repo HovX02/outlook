@@ -14,14 +14,23 @@ import requests
 from dotenv import load_dotenv
 
 from common.msa_api import check_available_signin_name, create_account
-from service.registration.bootstrap_service import bootstrap_session, preload_perimeterx
+from service.registration.bootstrap_service import (
+    bootstrap_account_session,
+    bootstrap_session,
+    preload_perimeterx,
+)
 from config.constants import DUAL_TOKEN, LOGIN_CLIENT_ID, MAIL_CLIENT_ID, OUTLOOK_EMAIL_DOMAINS, locale_for_country
 from common.http_session import OutlookHttpSession
 from service.account.account_persist import enrich_register_result
 from service.account.account_store import save_register_result as save_account
 from model.entity.register_models import AccountInfo, RegisterResult, SignupSession
 from service.registration.post_register_service import complete_oauth_after_signup
-from service.risk.risk_service import RegisterRetryable, solve_risk_challenge
+from service.risk.risk_service import (
+    RegisterRetryable,
+    prepare_z_style_silent,
+    solve_risk_challenge,
+    verify_z_style_risk,
+)
 
 from service.resource.proxy.proxy_utils import (
     expand_proxy_template,
@@ -72,27 +81,87 @@ def _register_attempt(
             timings[name] = round(time.perf_counter() - t0, 2)
 
     mkt, lc = locale_for_country(country)
-    ctx = _stage("bootstrap", lambda: bootstrap_session(http, mkt=mkt, lc=lc))
-    _stage("px_preload", lambda: preload_perimeterx(http, ctx))
+    flow = (os.environ.get("OUTLOOK_PRECREATE_FLOW", "z_style") or "z_style").strip().lower()
+    if flow not in {"z_style", "legacy"}:
+        raise RuntimeError(
+            f"未知 OUTLOOK_PRECREATE_FLOW={flow!r}，可选 z_style 或 legacy"
+        )
+
+    if flow == "z_style":
+        ctx = _stage(
+            "bootstrap",
+            lambda: bootstrap_account_session(http, mkt=mkt, lc=lc),
+        )
+    else:
+        ctx = _stage("bootstrap", lambda: bootstrap_session(http, mkt=mkt, lc=lc))
+        _stage("px_preload", lambda: preload_perimeterx(http, ctx))
 
     prefix = email_prefix or _random_email_prefix()
-    email, check_map = _stage(
-        "pick_email", lambda: _pick_available_email(http, ctx, prefix, domain=email_domain)
-    )
-    logger.info("选用邮箱: %s", email)
-
     first, last = _random_name()
     password = _random_password()
-    account = AccountInfo(
-        email=email,
-        password=password,
-        first_name=first,
-        last_name=last,
-        country=country,
-        birth_date=_random_birthday(),
-    )
+    birth_date = _random_birthday()
 
-    _stage("risk_px", lambda: solve_risk_challenge(http, ctx, account, mode=px_mode, proxy=proxy))
+    if flow == "z_style":
+        # Match the reference order: initialize risk and obtain silent PX before
+        # checking the mailbox name. The account signature is submitted only
+        # after a concrete available name has been selected.
+        silent_px = _stage(
+            "risk_initialize_experiments_silent",
+            lambda: prepare_z_style_silent(
+                http,
+                ctx,
+                mode=px_mode,
+                proxy=proxy,
+                country=country,
+            ),
+        )
+        email, check_map = _stage(
+            "pick_email",
+            lambda: _pick_available_email(
+                http, ctx, prefix, domain=email_domain,
+            ),
+        )
+        logger.info("选用邮箱: %s", email)
+        account = AccountInfo(
+            email=email,
+            password=password,
+            first_name=first,
+            last_name=last,
+            country=country,
+            birth_date=birth_date,
+        )
+        _stage(
+            "risk_verify",
+            lambda: verify_z_style_risk(
+                http,
+                ctx,
+                account,
+                silent_px,
+                proxy=proxy,
+            ),
+        )
+    else:
+        email, check_map = _stage(
+            "pick_email",
+            lambda: _pick_available_email(
+                http, ctx, prefix, domain=email_domain,
+            ),
+        )
+        logger.info("选用邮箱: %s", email)
+        account = AccountInfo(
+            email=email,
+            password=password,
+            first_name=first,
+            last_name=last,
+            country=country,
+            birth_date=birth_date,
+        )
+        _stage(
+            "risk_px",
+            lambda: solve_risk_challenge(
+                http, ctx, account, mode=px_mode, proxy=proxy,
+            ),
+        )
 
     create_data = _stage("create_account", lambda: create_account(
         http, ctx, account,
@@ -167,6 +236,7 @@ def _register_attempt(
         extra={
             "post_login": post_info,
             "uaid": ctx.uaid,
+            "precreate_flow": flow,
             "timings": timings,
             "proofs_method": post_info.get("proofs_method", ""),
             "proofs_satisfied": post_info.get("proofs_satisfied", ""),

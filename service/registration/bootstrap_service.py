@@ -13,6 +13,7 @@ from config.constants import (
     COBRAND_ID,
     DEFAULT_LC,
     DEFAULT_MKT,
+    LOGIN_MS_BASE,
     OUTLOOK_CLIENT_ID,
     OUTLOOK_REDIRECT_URI,
     OUTLOOK_SCOPE,
@@ -164,3 +165,151 @@ def preload_px_challenge_assets(
             logger.debug("挑战资源跳过: %s", exc)
 
     ctx.px_challenge_meta = challenge_meta
+
+
+# ---------------------------------------------------------------------------
+# z-style pre-CreateAccount bootstrap
+# ---------------------------------------------------------------------------
+
+
+def _capture_json_stringify(text: str, name: str) -> dict[str, Any]:
+    """Parse ``var <name> = JSON.stringify({...});`` from account.microsoft.com."""
+    pattern = rf"var {re.escape(name)} = JSON\.stringify\((.+?)\);"
+    match = re.search(pattern, text)
+    if not match:
+        raise RuntimeError(f"account.microsoft.com 未找到 {name}")
+    try:
+        value = json.loads(match.group(1))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"无法解析 {name}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError(f"{name} 不是 JSON 对象")
+    return value
+
+
+def _capture_me_control_options(text: str) -> dict[str, Any]:
+    """Parse the meControlOptions object used by the reference flow."""
+    match = re.search(
+        r"meControlOptions:\s*(\{[\s\S]*?\})(?=,\s*\r?\n\s*events\s*:)",
+        text,
+    )
+    if not match:
+        raise RuntimeError("account.microsoft.com 未找到 meControlOptions")
+    try:
+        value = json.loads(match.group(1))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"无法解析 meControlOptions: {exc}") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError("meControlOptions 不是 JSON 对象")
+    return value
+
+
+def _server_int(data: dict[str, Any], key: str, default: int) -> int:
+    try:
+        return int(data.get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _absolute_login_endpoint(raw: Any) -> str:
+    value = str(raw or "").strip()
+    if not value:
+        return ""
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+    return f"{LOGIN_MS_BASE}{value if value.startswith('/') else '/' + value}"
+
+
+def bootstrap_account_session(
+    http: OutlookHttpSession,
+    *,
+    mkt: str = DEFAULT_MKT,
+    lc: str = DEFAULT_LC,
+) -> SignupSession:
+    """Bootstrap using the account.microsoft.com → signup route.
+
+    The returned object deliberately keeps the existing ``SignupSession`` contract
+    so the current CreateAccount and post-login pipeline can consume it unchanged.
+    """
+    logger.info("加载 account.microsoft.com 参数…")
+    account_resp = http.get("https://account.microsoft.com/", allow_redirects=True)
+    account_resp.raise_for_status()
+    account_html = account_resp.text
+
+    area_config = _capture_json_stringify(account_html, "areaConfig")
+    create_account_url = str(area_config.get("createAccountUrl") or "").replace(":443", "")
+    if not create_account_url:
+        raise RuntimeError("areaConfig 中没有 createAccountUrl")
+
+    # This value is not required by the current signup API, but parsing it keeps
+    # the same bootstrap observability as the reference implementation.
+    control_options = _capture_me_control_options(account_html)
+    auth_provider = control_options.get("authProviderConfig")
+    if isinstance(auth_provider, dict):
+        aad = auth_provider.get("aad")
+        if isinstance(aad, dict) and aad.get("appId"):
+            logger.debug("account appId=%s", str(aad["appId"])[:32])
+
+    logger.info("加载注册页…")
+    signup_resp = http.get(create_account_url, allow_redirects=True)
+    signup_resp.raise_for_status()
+    signup_url = str(signup_resp.url or create_account_url)
+    server_data = _parse_server_data(signup_resp.text)
+    parsed = urllib.parse.urlparse(signup_url)
+    qs = urllib.parse.parse_qs(parsed.query)
+
+    uaid = str(server_data.get("sUnauthSessionID") or qs.get("uaid", [""])[0])
+    if not uaid:
+        raise RuntimeError("ServerData 中未找到 sUnauthSessionID")
+    canary = str(server_data.get("apiCanary") or "")
+    if not canary:
+        raise RuntimeError("ServerData 中无 apiCanary")
+
+    risk_init_url = _absolute_login_endpoint(server_data.get("urlRiskInitialize"))
+    risk_verify_url = _absolute_login_endpoint(server_data.get("urlRiskVerify"))
+    if not risk_init_url or not risk_verify_url:
+        raise RuntimeError("ServerData 中缺少 risk initialize/verify endpoint")
+
+    captcha_info = server_data.get("oCaptchaInfo")
+    if not isinstance(captcha_info, dict):
+        captcha_info = {}
+    px_fpt_url = str(captcha_info.get("urlDfp") or "")
+    px_app_id = str(server_data.get("sHumanAppId") or PX_APP_ID)
+    ctx = SignupSession(
+        uaid=uaid,
+        signup_url=signup_url,
+        signup_page_url=signup_url,
+        cobrandid=str(qs.get("cobrandid", [COBRAND_ID])[0]),
+        contextid=str(qs.get("contextid", [""])[0]),
+        opid=str(qs.get("opid", [""])[0]),
+        bk=str(qs.get("bk", [""])[0]),
+        sru=str(
+            qs.get("sru", [""])[0]
+            or server_data.get("urlLogin")
+            or server_data.get("sru")
+            or ""
+        ),
+        canary=canary,
+        hpgid=_server_int(server_data, "hpgid", 200225),
+        scid=_server_int(server_data, "iScenarioId", 100118),
+        server_data=server_data,
+        signup_query=parsed.query,
+        mkt=str(qs.get("mkt", [mkt])[0] or mkt),
+        lc=str(qs.get("lc", [lc])[0] or lc),
+        risk_initialize_url=risk_init_url,
+        risk_verify_url=risk_verify_url,
+        site_id=str(server_data.get("sSiteId") or ""),
+        px_app_id=px_app_id,
+        px_session_id=uaid,
+        px_fpt_url=px_fpt_url,
+        px_press_target="/api/v1.0/risk/verify",
+    )
+    server_data["_bootstrap_route"] = "account.microsoft.com"
+    http.signup_ctx = ctx
+    logger.info(
+        "z-style 会话就绪 uaid=%s scid=%s hpgid=%s",
+        ctx.uaid,
+        ctx.scid,
+        ctx.hpgid,
+    )
+    return ctx

@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 def _signup_api_url(endpoint: str, ctx: SignupSession) -> str:
+    if ctx.signup_query:
+        return f"{SIGNUP_API_BASE}/{endpoint}?{ctx.signup_query}"
     qs = urllib.parse.urlencode(ctx.common_query_params())
     return f"{SIGNUP_API_BASE}/{endpoint}?{qs}"
 
@@ -49,6 +51,48 @@ def check_available_signin_name(
     return data
 
 
+_CLIENT_EXPERIMENTS = [
+    {
+        "parallax": "enablesisufeedback",
+        "control": "enablesisufeedback_control",
+        "treatments": ["enablesisufeedback_treatment"],
+    },
+    {
+        "parallax": "addprivatebrowsingtexttofabricfooter",
+        "control": "addprivatebrowsingtexttofabricfooter_control",
+        "treatments": ["addprivatebrowsingtexttofabricfooter_treatment"],
+    },
+]
+
+
+def evaluate_experiment_assignments(
+    http: OutlookHttpSession,
+    ctx: SignupSession,
+) -> dict[str, Any]:
+    """Run the reference flow's experiment step and refresh session context."""
+    url = f"{SIGNUP_API_BASE}/EvaluateExperimentAssignments"
+    resp = http.post(
+        url,
+        headers=http.api_headers(ctx, origin="https://signup.live.com"),
+        json={"clientExperiments": _CLIENT_EXPERIMENTS},
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(f"EvaluateExperimentAssignments 失败: {data['error']}")
+    new_canary = data.get("apiCanary")
+    telemetry = data.get("telemetryContext")
+    if not new_canary:
+        raise RuntimeError("EvaluateExperimentAssignments 未返回 apiCanary")
+    if not telemetry:
+        raise RuntimeError("EvaluateExperimentAssignments 未返回 telemetryContext")
+    http.update_canary(ctx, data)
+    ctx.telemetry_context = str(telemetry)
+    ctx.server_data["telemetryContext"] = str(telemetry)
+    logger.debug("实验配置完成，telemetryContext 已更新")
+    return data
+
+
 def risk_initialize(
     http: OutlookHttpSession,
     ctx: SignupSession,
@@ -60,7 +104,7 @@ def risk_initialize(
     初始化风控。首次传空字符串即可拿到初始 continuationToken 与 humanSensorUrl。
     注意：字段必须是空字符串 ""，传 None 会 400。
     """
-    url = f"{LOGIN_MS_BASE}{RISK_INITIALIZE_PATH}"
+    url = ctx.risk_initialize_url or f"{LOGIN_MS_BASE}{RISK_INITIALIZE_PATH}"
     body = {"continuationToken": continuation_token or ""}
     resp = http.post(url, headers=http.api_headers(ctx, origin=origin), json=body)
     resp.raise_for_status()
@@ -94,6 +138,22 @@ def build_msa_risk_verify_signature(account: AccountInfo, ctx: SignupSession) ->
     }
 
 
+def build_msa_create_signature(account: AccountInfo, ctx: SignupSession) -> dict[str, Any]:
+    """Build the signature used by the account.microsoft.com reference flow."""
+    return {
+        "memberName": account.email,
+        "siteId": str(ctx.site_id or ctx.server_data.get("sSiteId") or "292666"),
+        "uiFlavor": "Web",
+        "appId": "",
+        "birthdate": account.birth_date,
+        "firstName": account.first_name,
+        "lastName": account.last_name,
+        "countryCode": account.country,
+        "verificationCode": "",
+        "deviceDetails": {"isRdm": False},
+    }
+
+
 def risk_verify(
     http: OutlookHttpSession,
     ctx: SignupSession,
@@ -102,9 +162,10 @@ def risk_verify(
     risk_provider_metadata: Optional[list[dict[str, str]]] = None,
     challenge_solution: Optional[dict[str, str]] = None,
     msa_risk_verify_signature: Optional[dict[str, Any]] = None,
+    msa_create_signature: Optional[dict[str, Any]] = None,
     origin: str = "https://signup.live.com",
 ) -> dict[str, Any]:
-    url = f"{LOGIN_MS_BASE}{RISK_VERIFY_PATH}"
+    url = ctx.risk_verify_url or f"{LOGIN_MS_BASE}{RISK_VERIFY_PATH}"
     body: dict[str, Any] = {"continuationToken": continuation_token}
     if risk_provider_metadata:
         body["riskProviderMetadata"] = risk_provider_metadata
@@ -112,6 +173,8 @@ def risk_verify(
         body["challengeSolution"] = challenge_solution
     if msa_risk_verify_signature:
         body["msaRiskVerifySignature"] = msa_risk_verify_signature
+    if msa_create_signature:
+        body["msaCreateSignature"] = msa_create_signature
 
     resp = http.post_risk(url, headers=http.api_headers(ctx, origin=origin), json=body)
     if resp.status_code >= 400:

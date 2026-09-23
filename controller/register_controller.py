@@ -27,6 +27,11 @@ rescue_proxy_raw = rescue_adapter.rescue_proxy_raw
 count_rescues_from_log = rescue_adapter.count_rescues_from_log
 
 router = APIRouter()
+_captcha_provider_meta = rt._captcha_provider_meta
+_captcha_provider_configured = rt._captcha_provider_configured
+_parse_proxy_selection = rt._parse_proxy_selection
+_persist_job = rt._persist_job
+_cancel_job = rt._cancel_job
 
 @router.get("/api/register-options")
 def get_register_options() -> JSONResponse:

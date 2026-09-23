@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -8,7 +9,13 @@ from typing import Any, Optional
 
 import requests
 
-from common.msa_api import build_msa_risk_verify_signature, risk_initialize, risk_verify
+from common.msa_api import (
+    build_msa_create_signature,
+    build_msa_risk_verify_signature,
+    evaluate_experiment_assignments,
+    risk_initialize,
+    risk_verify,
+)
 from service.registration.bootstrap_service import preload_px_challenge_assets
 from config.constants import PX_APP_ID
 from service.captcha.captcha_service import CaptchaRunTask, create_captcha_run_task, poll_captcha_run_token, solve_perimeterx
@@ -66,14 +73,19 @@ def _solver_ctx(
     challenge_meta: Optional[dict[str, Any]] = None,
     country: str = "US",
 ) -> dict[str, Any]:
-    return solver_context(
+    out = solver_context(
         http.session,
         page_url=ctx.signup_page_url,
-        uaid=ctx.uaid,
+        uaid=ctx.px_session_id or ctx.uaid,
         challenge_meta=challenge_meta or ctx.px_challenge_meta,
         proxy=proxy or http.proxy,
         country=country,
     )
+    out["app_id"] = ctx.px_app_id or str(ctx.server_data.get("sHumanAppId") or PX_APP_ID)
+    out["fpt_url"] = ctx.px_fpt_url or str(
+        (ctx.server_data.get("oCaptchaInfo") or {}).get("urlDfp") or ""
+    )
+    return out
 
 
 def _ensure_captcha_run_silent_task(
@@ -580,15 +592,38 @@ def _solve_via_bitbrowser(
 
 
 def _apply_offcaptcha_cookies(http: OutlookHttpSession, cookies: Any) -> None:
-    if not isinstance(cookies, dict):
-        return
-    for name, value in cookies.items():
+    """Install OffCaptcha cookies from either a map or JSON cookie records."""
+    records: list[dict[str, Any]] = []
+    if isinstance(cookies, dict):
+        records = [
+            {"name": str(name), "value": value}
+            for name, value in cookies.items()
+        ]
+    elif isinstance(cookies, list):
+        for item in cookies:
+            record: Any = item
+            if isinstance(item, str):
+                try:
+                    record = json.loads(item)
+                except json.JSONDecodeError:
+                    continue
+            if isinstance(record, dict):
+                records.append(record)
+
+    for record in records:
+        name = str(record.get("name") or "")
+        value = record.get("value")
         if not name or value is None:
             continue
-        val = str(value)
-        http.session.cookies.set(str(name), val, domain=".live.com")
-        http.session.cookies.set(str(name), val, domain=".microsoftonline.com")
-        http.session.cookies.set(str(name), val, domain=".hsprotect.net")
+        domain = str(record.get("domain") or "")
+        path = str(record.get("path") or "/")
+        if domain:
+            http.session.cookies.set(name, str(value), domain=domain, path=path)
+            continue
+        for fallback_domain in (".live.com", ".microsoftonline.com", ".hsprotect.net"):
+            http.session.cookies.set(
+                name, str(value), domain=fallback_domain, path=path,
+            )
 
 
 def _solve_via_offcaptcha(
@@ -605,18 +640,26 @@ def _solve_via_offcaptcha(
 
     p = proxy or http.proxy
     meta = challenge_meta or ctx.px_challenge_meta or {}
-    session_id = _registration_session_id(ctx)
+    session_id = ctx.px_session_id or _registration_session_id(ctx)
     page_url = ctx.signup_page_url or "https://signup.live.com/"
+    website_key = ctx.px_app_id or str(ctx.server_data.get("sHumanAppId") or PX_APP_ID)
     ua = _offcaptcha_user_agent(http)
 
     if phase == "silent":
-        fpt = ctx.human_sensor_url or _registration_iframe_url(ctx)
+        captcha_info = ctx.server_data.get("oCaptchaInfo") or {}
+        fpt = (
+            ctx.px_fpt_url
+            or str(captcha_info.get("urlDfp") or "")
+            or ctx.human_sensor_url
+            or _registration_iframe_url(ctx)
+        )
         logger.info("PX 走 offcaptcha invisible session=%s fpt=%s", session_id[:24], fpt[:80])
         sol = offcaptcha.solve_invisible(
             website_url=page_url,
             session_id=session_id,
             fpt_url=fpt,
             proxy=p,
+            website_key=website_key,
             user_agent=ua,
         )
         _apply_offcaptcha_cookies(http, sol.get("cookies"))
@@ -631,7 +674,7 @@ def _solve_via_offcaptcha(
     if prefer in {"iframe", "challenge"}:
         target = challenge_url or offcaptcha.default_press_target()
     else:
-        target = offcaptcha.default_press_target()
+        target = ctx.px_press_target or offcaptcha.default_press_target()
     uuid = str(meta.get("uuid", ""))
     vid = str(meta.get("vid", "") or stable_vid)
     if not uuid or not vid:
@@ -644,6 +687,7 @@ def _solve_via_offcaptcha(
         uuid=uuid,
         vid=vid,
         proxy=p,
+        website_key=website_key,
         user_agent=ua,
         iframe_url=challenge_url,
     )
@@ -1007,3 +1051,105 @@ def solve_risk_challenge(
     ):
         return
     raise Verify2Failed("risk/verify #2 未通过（PX press 打码未通过）")
+
+
+# ---------------------------------------------------------------------------
+# z-style pre-CreateAccount orchestration
+# ---------------------------------------------------------------------------
+
+
+def prepare_z_style_silent(
+    http: OutlookHttpSession,
+    ctx: SignupSession,
+    *,
+    mode: str,
+    proxy: Optional[str],
+    country: str,
+) -> dict[str, str]:
+    """Run risk initialization, experiments and silent PX before name check."""
+    init = risk_initialize(http, ctx, "")
+    state = str(init.get("state") or "")
+    logger.info("z-style risk/initialize state=%s", state)
+    if state != "riskInitializationRequired":
+        raise RuntimeError(f"risk/initialize 未预期状态: {state}")
+    if not ctx.continuation_token:
+        raise RuntimeError("risk/initialize 未返回 continuationToken")
+
+    evaluate_experiment_assignments(http, ctx)
+    if ctx.human_sensor_url:
+        load_human_sensor(http, ctx)
+
+    return _acquire_silent_px(
+        http,
+        ctx,
+        mode=mode,
+        proxy=proxy,
+        country=country,
+    )
+
+
+def verify_z_style_risk(
+    http: OutlookHttpSession,
+    ctx: SignupSession,
+    account: AccountInfo,
+    silent_px: dict[str, str],
+    *,
+    proxy: Optional[str],
+) -> None:
+    """Submit z-style verify #1/#2, then leave CreateAccount to the caller."""
+    try:
+        resp1 = risk_verify(
+            http,
+            ctx,
+            continuation_token=ctx.continuation_token,
+            risk_provider_metadata=build_px_metadata(silent_px),
+            msa_create_signature=build_msa_create_signature(account, ctx),
+        )
+    except requests.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 403:
+            body = ""
+            try:
+                body = exc.response.text[:200]
+            except Exception:  # noqa: BLE001
+                pass
+            raise RiskBlocked(
+                f"verify #1 riskBlock（该 IP 被拦，换新 IP 重试）: {body}"
+            ) from exc
+        raise
+
+    state = str(resp1.get("state") or "")
+    logger.info("z-style risk/verify #1 state=%s", state)
+    if state == "continue":
+        return
+    if state != "riskChallengeRequired":
+        raise RuntimeError(f"risk/verify #1 未预期状态: {state}")
+
+    challenge = resp1.get("challengeDetails")
+    challenge = challenge if isinstance(challenge, dict) else {}
+    challenge_meta = challenge.get("challengeMetadata")
+    challenge_meta = challenge_meta if isinstance(challenge_meta, dict) else {}
+    if not challenge_meta.get("uuid") or not challenge_meta.get("vid"):
+        raise RuntimeError("risk/verify #1 缺少 challengeMetadata.uuid/vid")
+    challenge_type = str(challenge.get("challengeType") or "HumanCaptcha")
+    ctx.px_challenge_meta = challenge_meta
+
+    if _is_offcaptcha_solver():
+        load_challenge_iframe(http, ctx, challenge_meta)
+        post_px_beacon(http, ctx, tag="z-style-pre-press")
+    else:
+        load_challenge_iframe(http, ctx, challenge_meta)
+        preload_px_challenge_assets(http, ctx, challenge_meta)
+        warmup_px_session(http, ctx)
+        time.sleep(1.0)
+        post_px_beacon(http, ctx, tag="z-style-pre-press")
+        post_px_bundle(http, ctx, tag="z-style-pre-press")
+
+    if not _protocol_verify2(
+        http,
+        ctx,
+        account,
+        proxy=proxy,
+        challenge_meta=challenge_meta,
+        challenge_type=challenge_type,
+    ):
+        raise Verify2Failed("z-style risk/verify #2 未通过（PX press 打码未通过）")

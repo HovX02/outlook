@@ -108,6 +108,8 @@ docker-compose.*.local.yml
 # 本地调试 / rescue 脚本（含硬编码账号、默认真实邮箱、个人 Roxy profile）
 scripts/roxy_unban_capture.py
 scripts/chrome_offcaptcha_press_watch.py
+/temp_*.py
+/test_roxy_*.py
 scripts/rescue_batch.py
 scripts/rescue_capture.py
 

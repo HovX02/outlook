@@ -19,6 +19,7 @@ from service.account import account_store, enable_imap, graph_mail, mail_reader
 from service.account.account_persist import merge_account_row
 from service.account.keepalive_service import keepalive_one
 from service.registration import post_register_service as post_register
+from service.registration import register_service as reg_module
 from service.registration.register_service import register_one, save_account
 from service.registration.batch_service import register_batch_iter
 from service.resource.proxy import proxy_pool
@@ -74,6 +75,15 @@ def _proxy_url(raw: Optional[str]) -> str:
     except Exception:  # noqa: BLE001
         return ""
 
+
+_SETTINGS_KEYS = (
+    "CAPTCHA_RUN_API_KEY",
+    "EZCAPTCHA_API_KEY",
+    "CAPSOLVER_API_KEY",
+    "OFFCAPTCHA_API_KEY",
+    "OFFCAPTCHA_SOFT_ID",
+    "DEFAULT_CAPTCHA_PROVIDER",
+)
 
 CAPTCHA_PROVIDER_CATALOG: list[dict[str, str]] = [
     {

@@ -31,6 +31,15 @@ class SignupSession:
     oauth_redirect_uri: str = ""
     mkt: str = "EN-US"
     lc: str = "1033"
+    signup_query: str = ""
+    # ServerData-derived endpoints/identifiers used by the z-style pre-create flow.
+    risk_initialize_url: str = ""
+    risk_verify_url: str = ""
+    site_id: str = ""
+    px_app_id: str = ""
+    px_session_id: str = ""
+    px_fpt_url: str = ""
+    px_press_target: str = ""
 
     def common_query_params(self) -> dict[str, str]:
         return {

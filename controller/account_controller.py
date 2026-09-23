@@ -27,6 +27,7 @@ rescue_proxy_raw = rescue_adapter.rescue_proxy_raw
 count_rescues_from_log = rescue_adapter.count_rescues_from_log
 
 router = APIRouter()
+_compute_stats = rt._compute_stats
 
 @router.get("/api/accounts")
 def list_accounts() -> JSONResponse:
