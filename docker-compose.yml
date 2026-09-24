@@ -14,6 +14,12 @@ services:
       PX_SWIFTSHADER_TARGET: parent
       PX_PRESS_BACKEND: xdotool
       OUTLOOK_DB_PATH: /app/data/outlook.db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.myapp.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.myapp.entrypoints=websecure"
+      - "traefik.http.routers.myapp.tls=true"
+      - "traefik.http.services.myapp.loadbalancer.server.port=8890"
     volumes:
       - ./data:/app/data
       - ./accounts:/app/accounts
