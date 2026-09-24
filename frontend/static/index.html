@@ -106,7 +106,7 @@
   .switch { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
   .switch input { width:16px; height:16px; accent-color:var(--brand); }
 
-  /* 注册中心：左配置 / 右进度 */
+  /* Registration Console: Config left / Progress right */
   .register-page-layout {
     flex:1; min-height:0; display:grid;
     grid-template-columns:minmax(0,1fr) minmax(340px,42%);
@@ -173,7 +173,7 @@
   .main.register-mode .topbar { display:none; }
   .content.register-mode { padding-top:12px; }
 
-  /* account_manager 打码 Provider 卡片 */
+  /* account_manager Captcha Provider Card */
   .pool-page.provider-page { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-sm); overflow:hidden; }
   .pool-header.provider-page-header { padding:16px 18px 0; border-bottom:1px solid var(--border-subtle); background:var(--bg-card); }
   .pool-header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
@@ -237,7 +237,7 @@
   .main.register-mode .topbar { display:none; }
   .content.register-mode { padding-top:12px; }
 
-  /* account_manager 打码 Provider 卡片 */
+  /* account_manager Captcha Provider Card */
   .pool-page.provider-page { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-sm); overflow:hidden; }
   .pool-header.provider-page-header { padding:16px 18px 0; border-bottom:1px solid var(--border-subtle); background:var(--bg-card); }
   .pool-header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
@@ -315,12 +315,12 @@
   .register-log-msg { flex:1; min-width:0; white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; }
   .register-log-summary { margin-top:10px; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.55; }
 
-  /* 账号池：工具栏 + 表 */
+  /* Account Pool: Toolbar + Table */
   .pool-page {
     flex:1; display:flex; flex-direction:column; min-height:0;
     background:var(--bg-card); border:1px solid var(--border); border-radius:12px; overflow:hidden;
   }
-  /* 代理池内容多：整页可滚动，避免底部「代理列表 / 账号绑定」被裁切 */
+  /* Proxy pool page scrollable */
   #sec-proxies.active {
     display:flex; flex-direction:column; min-height:0; overflow:hidden;
   }
@@ -598,8 +598,8 @@
                   <span class="register-section-meta">Count, Concurrency, Output Format</span>
                 </div>
                 <div class="register-params-grid">
-                  <label class="field" id="roxyProfileField" style="display:none;"><span>Roxy Profile ID</span><input type="text" id="roxyProfileId" placeholder="选择或填写 dirId" autocomplete="off" /></label>
-                  <label class="field" id="bitbrowserProfileField" style="display:none;"><span>BitBrowser Profile ID</span><input type="text" id="bitbrowserProfileId" placeholder="选择或填写 profileId" autocomplete="off" /></label>
+                  <label class="field" id="roxyProfileField" style="display:none;"><span>Roxy Profile ID</span><input type="text" id="roxyProfileId" placeholder="Select or enter dirId" autocomplete="off" /></label>
+                  <label class="field" id="bitbrowserProfileField" style="display:none;"><span>BitBrowser Profile ID</span><input type="text" id="bitbrowserProfileId" placeholder="Select or enter dirId" autocomplete="off" /></label>
                   <label class="field"><span>Count</span><input type="number" id="count" value="1" min="1" max="20" /></label>
                   <label class="field"><span>Concurrency</span><input type="number" id="concurrency" value="1" min="1" max="20" /></label>
                   <label class="field" title="Official Microsoft Outlook/Hotmail domains"><span>Email Domain</span><select id="domain"></select></label>
@@ -619,7 +619,7 @@
               <div class="register-log-title-row">
                 <strong>Registration Logs</strong>
                 <div class="register-log-head-actions">
-                  <button type="button" class="register-log-copy-btn" id="logCopyBtn" title="Copy All Logs" style="display:none;">复制</button>
+                  <button type="button" class="register-log-copy-btn" id="logCopyBtn" title="Copy All Logs" style="display:none;">Copy</button>
                   <span class="register-log-live" id="logLive" style="display:none;">Live Updating...</span>
                 </div>
               </div>
@@ -738,7 +738,7 @@
             </table>
           </div>
           <div class="card pad" style="margin-top:12px;">
-            <h2 style="margin-bottom:10px;">账号绑定 <span class="hint" style="font-weight:400;">(Recorded automatically on success)</span></h2>
+            <h2 style="margin-bottom:10px;">Account Bindings <span class="hint" style="font-weight:400;">(Recorded automatically on success)</span></h2>
             <div class="tbl-wrap">
               <table>
                 <thead><tr><th>Email</th><th>Proxy</th><th>Session (Masked)</th><th>Purpose</th><th>Bound At</th><th style="width:72px;">Actions</th></tr></thead>
@@ -786,7 +786,7 @@
             <div id="proxyChartLegend" class="proxy-chart-legend"></div>
           </div>
           <div class="card pad">
-            <h2 style="margin-bottom:10px;">明细表 <span class="hint" style="font-weight:400;">Providers × Proxy Country × Reg Country</span></h2>
+            <h2 style="margin-bottom:10px;">Detailed Breakdown <span class="hint" style="font-weight:400;">Providers × Proxy Country × Reg Country</span></h2>
             <div class="tbl-wrap">
               <table>
                 <thead><tr>
@@ -863,12 +863,12 @@
       <section class="section" id="sec-verify">
         <div class="card pad">
           <h2>4-Segment Combo Verification (Single)</h2>
-          <div class="hint" style="margin-top:0;">Paste <code>email----password----client_id----refresh_token</code>，判定 graph / outlook_rest / imap YesNo可读信。账号池批量测活会<b>重测已标记可读信的号</b>，用来确认有没有死；没有 Token 的才测不了。</div>
-          <div style="margin-top:12px;"><label class="field"><span style="display:block;height:18px;line-height:18px;margin-bottom:6px;color:var(--fg-3);font-size:12px;font-weight:600;">四段式 combo</span><input type="text" id="verCombo" placeholder="email----password----client_id----M.C5xx..." /></label></div>
+          <div class="hint" style="margin-top:0;">Paste <code>email----password----client_id----refresh_token</code> to verify graph / outlook_rest / imap mailbox readability. Batch keepalive/verify in account pool will <b>re-test accounts marked as readable</b> to confirm active status; accounts without tokens cannot be verified.</div>
+          <div style="margin-top:12px;"><label class="field"><span style="display:block;height:18px;line-height:18px;margin-bottom:6px;color:var(--fg-3);font-size:12px;font-weight:600;">4-segment combo</span><input type="text" id="verCombo" placeholder="email----password----client_id----M.C5xx..." /></label></div>
           <div class="grid" style="margin-top:12px;">
-            <div><label class="field"><span style="display:block;height:18px;line-height:18px;margin-bottom:6px;color:var(--fg-3);font-size:12px;font-weight:600;">或 · 邮箱</span><input type="text" id="verEmail" placeholder="you@outlook.com" /></label></div>
-            <div><label class="field"><span style="display:block;height:18px;line-height:18px;margin-bottom:6px;color:var(--fg-3);font-size:12px;font-weight:600;">或 · refresh_token</span><input type="text" id="verToken" placeholder="M.C5xx..." /></label></div>
-            <div><label class="field"><span style="display:block;height:18px;line-height:18px;margin-bottom:6px;color:var(--fg-3);font-size:12px;font-weight:600;">代理（可选）</span><input type="text" id="verProxy" placeholder="Leave empty for direct connection" /></label></div>
+            <div><label class="field"><span style="display:block;height:18px;line-height:18px;margin-bottom:6px;color:var(--fg-3);font-size:12px;font-weight:600;">Or Email</span><input type="text" id="verEmail" placeholder="you@outlook.com" /></label></div>
+            <div><label class="field"><span style="display:block;height:18px;line-height:18px;margin-bottom:6px;color:var(--fg-3);font-size:12px;font-weight:600;">Or Password</span><input type="text" id="verPwd" placeholder="Pass123" /></label></div>
+            <div><label class="field"><span style="display:block;height:18px;line-height:18px;margin-bottom:6px;color:var(--fg-3);font-size:12px;font-weight:600;">Proxy (Optional)</span><input type="text" id="verProxy" placeholder="host:port:user:pass" /></label></div>
           </div>
           <div class="row" style="margin-top:14px;">
             <label class="switch"><input type="checkbox" id="verImap" checked /> Check IMAP as well (Legacy accounts only)</label>
@@ -887,15 +887,15 @@
       <section class="section" id="sec-ops">
         <div class="card pad">
           <h2>IMAP / Keepalive <span class="wip">Optional</span></h2>
-          <div class="hint" style="margin-top:0;">防封要点（详见 <code>scripts/ANTIBAN.md</code>）：<b>固定住宅/移动 IP</b>、一个 IP 只注册/保活少量号；<b>注册后冷却</b>，别立刻高频调用；<b>低频保活</b>（每号 2–3 天一次即可）；<b>默认走 Graph 读信、不强开 IMAP</b>。</div>
-          <div class="hint" style="margin-top:8px;">保活动作：<code>refresh_token → access_token → GET /me + 列 1 封信 → 轮换新 refresh_token 回写</code>（accounts.txt / accounts_dual.txt / 账号 json）。可对「账号池」勾选后点 <b>保活选中</b>，或在此保活全部。</div>
+          <div class="hint" style="margin-top:0;">Anti-ban tips (see <code>scripts/ANTIBAN.md</code>): <b>Fixed residential/mobile IP</b>, single IP registers/maintains small amount of accounts; <b>Cool down after registration</b>, do not call at high frequency immediately; <b>Low frequency keepalive</b> (once every 2-3 days per account); <b>Default using Graph to read emails, do not force IMAP</b>.</div>
+          <div class="hint" style="margin-top:8px;">Keepalive actions: <code>refresh_token → access_token → GET /me + List 1 email</code> (rotates new refresh_token back to DB). Applies to account pool (select accounts in pool and click "Keepalive Selected" or keepalive all here).</div>
           <div class="row" style="margin-top:14px;">
             <button class="btn" id="imapEnableBtn">Enable IMAP (Best Effort)</button>
             <button class="btn primary" id="keepaliveAllBtn">Keepalive All</button>
             <button class="btn" id="replenishBtn">Replenish Mail Pool</button>
             <button class="btn" id="dbBackupBtn">Backup Database</button>
           </div>
-          <div class="hint" style="margin-top:8px;">数据Storage: <code>accounts/outlook.db</code>（账号 + 代理池 + Batch + 元数据）。备份输出到 <code>accounts/backups/</code>。</div>
+          <div class="hint" style="margin-top:8px;">Data Storage: <code>accounts/outlook.db</code> (accounts + proxy pool + batch + metadata). Backup exported to <code>accounts/backups/</code>.</div>
           <div class="msgbox" id="opsMsg"></div>
           <div class="tbl-wrap" id="kaWrap" style="margin-top:12px; display:none;">
             <table>
@@ -914,7 +914,7 @@
   <div class="modal">
     <div class="modal-h">Add Proxy Templates</div>
     <div class="modal-b">
-      <div class="hint" style="margin-top:0;">每行一条，格式 <code>host:port:user:pass</code> 或带 <code>{sid}</code> 的 sticky 模板。以 <code>#</code> 开头为注释。</div>
+      <div class="hint" style="margin-top:0;">One entry per line, format <code>host:port:user:pass</code> or sticky template with <code>{sid}</code>. Lines starting with <code>#</code> are comments.</div>
       <label class="field" style="margin-top:12px;"><span>Provider (Group name, e.g. rapidproxy / kookeey)</span><input type="text" id="proxyAddProvider" placeholder="rapidproxy" /></label>
       <label class="field" style="margin-top:8px;"><span>Country Code (Exit country, e.g. US / SG, empty to infer)</span><input type="text" id="proxyAddCountry" placeholder="US" maxlength="6" /></label>
       <label class="field" style="margin-top:8px;"><span>Label (Optional for single entry)</span><input type="text" id="proxyAddLabel" placeholder="US residential" /></label>
@@ -931,9 +931,9 @@
   <div class="modal">
     <div class="modal-h">Import Accounts (Auto 4-Segment / 6-Segment)</div>
     <div class="modal-b">
-      <div class="hint" style="margin-top:0;">按 <code>----</code> 分段数自动识别：<br>· 4 段 Graph：<code>email----password----client_id----refresh_token</code><br>· 6 段 login.exe 恢复邮箱：<code>…----recovery_email----recovery_password</code><br>· 6 段 dual 双令牌 SSO：<code>…----login_client_id----login_refresh_token</code>（两枚 refresh，不Yes恢复邮箱）<br>自动按邮箱去重、校验字段。</div>
+      <div class="hint" style="margin-top:0;">Auto-detect by <code>----</code> segment count:<br>· 4-segment Graph: <code>email----password----client_id----refresh_token</code><br>· 6-segment login.exe recovery email: <code>…----recovery_email----recovery_password</code><br>· 6-segment dual SSO token: <code>…----login_client_id----login_refresh_token</code> (2 refresh tokens, non-recovery email)<br>Automatically deduplicates by email and validates required fields.</div>
       <div style="margin:12px 0;"><input type="file" id="importFile" accept=".txt,.csv" /></div>
-      <textarea id="importText" rows="9" placeholder="4段: a@outlook.com----pwd----cid----M.C5xx...&#10;6段: b@outlook.com----pwd----cid----M.C5yy...----login_cid----M.C5zz..."></textarea>
+      <textarea id="importText" rows="9" placeholder="4-segment: a@outlook.com----pwd----cid----M.C5xx...&#10;6-segment: b@outlook.com----pwd----cid----M.C5yy...----login_cid----M.C5zz..."></textarea>
     </div>
     <div class="modal-f">
       <button class="btn ghost" id="importCancel">Cancel</button>
@@ -981,7 +981,7 @@
       <button class="btn sm ghost" style="margin-left:auto" id="rescueModalClose">Close</button>
     </div>
     <div class="modal-b" style="padding-top:12px;">
-      <div class="hint" style="margin-bottom:8px;">即 <code>rescue_login</code>：用账密重新走 OAuth 拿 refresh_token。代理用<b>批次注册页</b>（含 <code>{sid}</code>）；测活仍直连。</div>
+      <div class="hint" style="margin-bottom:8px;">i.e., <code>rescue_login</code>: re-runs OAuth flow using email and password to retrieve refresh_token. Proxy uses <b>batch registration page</b> settings (including <code>{sid}</code>); verification connects directly.</div>
       <div class="console" id="rescueConsole" style="height:320px;"></div>
     </div>
   </div>
@@ -1048,17 +1048,17 @@ const FALLBACK_DOMAINS=[
   {value:'@outlook.com.tr',label:'Turkey'},{value:'@outlook.co.uk',label:'United Kingdom'},{value:'@outlook.com.vn',label:'Vietnam'},
 ];
 const FALLBACK_COUNTRIES=[
-  {code:'AE',name:'United Arab Emirates',name_zh:'阿联酋'},{code:'AR',name:'Argentina',name_zh:'阿根廷'},{code:'AT',name:'Austria',name_zh:'奥地利'},{code:'AU',name:'Australia',name_zh:'澳大利亚'},
-  {code:'BE',name:'Belgium',name_zh:'比利时'},{code:'BR',name:'Brazil',name_zh:'巴西'},{code:'CA',name:'Canada',name_zh:'加拿大'},{code:'CH',name:'Switzerland',name_zh:'瑞士'},{code:'CL',name:'Chile',name_zh:'智利'},
-  {code:'CN',name:'China',name_zh:'中国'},{code:'CO',name:'Colombia',name_zh:'哥伦比亚'},{code:'CZ',name:'Czechia',name_zh:'捷克'},{code:'DE',name:'Germany',name_zh:'德国'},{code:'DK',name:'Denmark',name_zh:'丹麦'},
-  {code:'EG',name:'Egypt',name_zh:'埃及'},{code:'ES',name:'Spain',name_zh:'西班牙'},{code:'FI',name:'Finland',name_zh:'芬兰'},{code:'FR',name:'France',name_zh:'法国'},{code:'GB',name:'United Kingdom',name_zh:'英国'},
-  {code:'GR',name:'Greece',name_zh:'希腊'},{code:'HK',name:'Hong Kong',name_zh:'香港'},{code:'HU',name:'Hungary',name_zh:'匈牙利'},{code:'ID',name:'Indonesia',name_zh:'印尼'},{code:'IE',name:'Ireland',name_zh:'爱尔兰'},
-  {code:'IL',name:'Israel',name_zh:'以色列'},{code:'IN',name:'India',name_zh:'印度'},{code:'IT',name:'Italy',name_zh:'意大利'},{code:'JP',name:'Japan',name_zh:'日本'},{code:'KR',name:'South Korea',name_zh:'韩国'},
-  {code:'LV',name:'Latvia',name_zh:'拉脱维亚'},{code:'MX',name:'Mexico',name_zh:'墨西哥'},{code:'MY',name:'Malaysia',name_zh:'马来西亚'},{code:'NL',name:'Netherlands',name_zh:'荷兰'},{code:'NO',name:'Norway',name_zh:'挪威'},
-  {code:'NZ',name:'New Zealand',name_zh:'新西兰'},{code:'PE',name:'Peru',name_zh:'秘鲁'},{code:'PH',name:'Philippines',name_zh:'菲律宾'},{code:'PL',name:'Poland',name_zh:'波兰'},{code:'PT',name:'Portugal',name_zh:'葡萄牙'},
-  {code:'RO',name:'Romania',name_zh:'罗马尼亚'},{code:'RU',name:'Russia',name_zh:'俄罗斯'},{code:'SA',name:'Saudi Arabia',name_zh:'沙特'},{code:'SE',name:'Sweden',name_zh:'瑞典'},{code:'SG',name:'Singapore',name_zh:'新加坡'},
-  {code:'SK',name:'Slovakia',name_zh:'斯洛伐克'},{code:'TH',name:'Thailand',name_zh:'泰国'},{code:'TR',name:'Turkey',name_zh:'土耳其'},{code:'TW',name:'Taiwan',name_zh:'台湾'},{code:'UA',name:'Ukraine',name_zh:'乌克兰'},
-  {code:'US',name:'United States',name_zh:'美国'},{code:'VN',name:'Vietnam',name_zh:'越南'},{code:'ZA',name:'South Africa',name_zh:'南非'},
+  {code:'AE',name:'United Arab Emirates',name_zh:'United Arab Emirates'},{code:'AR',name:'Argentina',name_zh:'Argentina'},{code:'AT',name:'Austria',name_zh:'Austria'},{code:'AU',name:'Australia',name_zh:'Australia'},
+  {code:'BE',name:'Belgium',name_zh:'Belgium'},{code:'BR',name:'Brazil',name_zh:'Brazil'},{code:'CA',name:'Canada',name_zh:'Canada'},{code:'CH',name:'Switzerland',name_zh:'Switzerland'},{code:'CL',name:'Chile',name_zh:'Chile'},
+  {code:'CN',name:'China',name_zh:'China'},{code:'CO',name:'Colombia',name_zh:'Colombia'},{code:'CZ',name:'Czech Republic',name_zh:'Czech Republic'},{code:'DE',name:'Germany',name_zh:'Germany'},{code:'DK',name:'Denmark',name_zh:'Denmark'},
+  {code:'EG',name:'Egypt',name_zh:'Egypt'},{code:'ES',name:'Spain',name_zh:'Spain'},{code:'FI',name:'Finland',name_zh:'Finland'},{code:'FR',name:'France',name_zh:'France'},{code:'GB',name:'United Kingdom',name_zh:'United Kingdom'},
+  {code:'GR',name:'Greece',name_zh:'Greece'},{code:'HK',name:'Hong Kong',name_zh:'Hong Kong'},{code:'HU',name:'Hungary',name_zh:'Hungary'},{code:'ID',name:'Indonesia',name_zh:'Indonesia'},{code:'IE',name:'Ireland',name_zh:'Ireland'},
+  {code:'IL',name:'Israel',name_zh:'Israel'},{code:'IN',name:'India',name_zh:'India'},{code:'IT',name:'Italy',name_zh:'Italy'},{code:'JP',name:'Japan',name_zh:'Japan'},{code:'KR',name:'South Korea',name_zh:'South Korea'},
+  {code:'LV',name:'Latvia',name_zh:'Latvia'},{code:'MX',name:'Mexico',name_zh:'Mexico'},{code:'MY',name:'Malaysia',name_zh:'Malaysia'},{code:'NL',name:'Netherlands',name_zh:'Netherlands'},{code:'NO',name:'Norway',name_zh:'Norway'},
+  {code:'NZ',name:'New Zealand',name_zh:'New Zealand'},{code:'PE',name:'Peru',name_zh:'Peru'},{code:'PH',name:'Philippines',name_zh:'Philippines'},{code:'PL',name:'Poland',name_zh:'Poland'},{code:'PT',name:'Portugal',name_zh:'Portugal'},
+  {code:'RO',name:'Romania',name_zh:'Romania'},{code:'RU',name:'Russia',name_zh:'Russia'},{code:'SA',name:'Saudi Arabia',name_zh:'Saudi Arabia'},{code:'SE',name:'Sweden',name_zh:'Sweden'},{code:'SG',name:'Singapore',name_zh:'Singapore'},
+  {code:'SK',name:'Slovakia',name_zh:'Slovakia'},{code:'TH',name:'Thailand',name_zh:'Thailand'},{code:'TW',name:'Taiwan',name_zh:'Taiwan'},{code:'UA',name:'Ukraine',name_zh:'Ukraine'},{code:'US',name:'United States',name_zh:'United States'},{code:'VN',name:'Vietnam',name_zh:'Vietnam'}
+  {code:'US',name:'United States',name_zh:'United States'},{code:'VN',name:'Vietnam',name_zh:'Vietnam'},{code:'ZA',name:'South Africa',name_zh:'South Africa'},
 ];
 function normalizeDomainOption(d){
   if(!d) return null;
@@ -1214,7 +1214,7 @@ function tokenStatusMain(v, hasToken){
 }
 function tokenStatusDetail(v){
   if(!v) return '<div class="detail-tok"><span class="pill na">Untested</span></div>';
-  const pill=(label, ok, hint)=>`<span class="pill ${ok===null?'na':ok?'on':'off'}" title="${escHtml(hint||'')}">${label}${ok===null?' · 未测':ok?' · 通':' · 不通'}</span>`;
+  const pill=(label, ok, hint)=>`<span class="pill ${ok===null?'na':ok?'on':'off'}" title="${escHtml(hint||'')}">${label}${ok===null?' · Untested':ok?' · Pass':' · Fail'}</span>`;
   return `<div class="detail-tok">
     ${pill('Graph Mail', v.graph, 'Microsoft Graph API, used for import tools')}
     ${pill('Outlook REST', v.outlook_rest, 'Legacy REST API, usually ignorable')}
@@ -1401,11 +1401,11 @@ function renderCaptchaProviderCards(opts){
   const items=(opts.captcha&&opts.captcha.items)||[];
   const defaultId=(opts.captcha&&opts.captcha.default)||'offcaptcha';
   const enabled=items.filter(x=>x.configured).length;
-  if(summary) summary.textContent=`共 ${items.length} 个 · 已配置 ${enabled} · 默认 ${items.find(x=>x.id===defaultId)?.label||defaultId}`;
+  if(summary) summary.textContent=`Total ${items.length} · Configured ${enabled} · Default ${items.find(x=>x.id===defaultId)?.label||defaultId}`;
   list.innerHTML=items.map(it=>{
     const meta=it.configured?(it.masked?`Key ${it.masked}`:'Configured'):(it.requires_key?'Key Not Configured':'No Key Required');
     const defaultChip=it.id===defaultId?' <span class="register-chip on">Default</span>':'';
-    const editBtn=it.requires_key?`<button type="button" class="table-action-btn" data-captcha-edit="${it.id}">编辑</button>`:'';
+    const editBtn=it.requires_key?`<button type="button" class="table-action-btn" data-captcha-edit="${it.id}">Edit</button>`:'';
     const sub=[it.hint||'', meta+(it.source?(' · '+it.source):'')].filter(Boolean).join(' · ');
     return `<div class="provider-card-row">
       <div class="provider-card-main">
@@ -1480,7 +1480,7 @@ async function loadConfig(){
     const c = await (await api('/api/config')).json(); CFG=c;
     await loadRegisterOptions();
     const routes = c.execution_routes || [{id:'protocol',label:'Pure Protocol (Usable)',ready:true,description:'Fluent Web API + PX solver'}];
-    $('executionRoute').innerHTML = routes.map(r=>`<option value="${r.id}"${r.id==='protocol'?' selected':''}${r.ready?'':' disabled'}>${r.label}${r.ready?'':'（尚未接入）'}</option>`).join('');
+    $('executionRoute').innerHTML = routes.map(r=>`<option value="${r.id}"${r.id==='protocol'?' selected':''}${r.ready?'':' disabled'}>${r.label}${r.ready?'':' (Not Integrated)'}</option>`).join('');
     const updateRouteHint = ()=>{
       const r=routes.find(x=>x.id===$('executionRoute').value)||routes[0];
       $('executionRouteHint').textContent = r.description || '';
@@ -1518,7 +1518,7 @@ async function health(){
 }
 
 function renderStats(s){
-  const items=[['Total',s.total,'var(--fg)'],['Has Token',s.with_token,'var(--info)'],['Usable',s.usable,'var(--success)'],['失活',s.dead,'var(--danger)'],['未测',s.untested,'var(--fg-3)'],['今日新增',s.today_new,'var(--brand)']];
+  const items=[['Total',s.total,'var(--fg)'],['Has Token',s.with_token,'var(--info)'],['Usable',s.usable,'var(--success)'],['Inactive',s.dead,'var(--danger)'],['Untested',s.untested,'var(--fg-3)'],['Added Today',s.today_new,'var(--brand)']];
   $('statCards').innerHTML = items.map(([l,v,c])=>`<div class="card stat"><div class="lbl">${l}</div><div class="num" style="color:${c}">${v}</div></div>`).join('');
 }
 async function loadJobs(){
@@ -1583,7 +1583,7 @@ function renderSummary(s){
   const stages=Object.entries(st).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="badge neutral">${escHtml(k)} ${v}s</span>`).join(' ')||'—';
   box.className='register-log-summary msgbox show ok';
   box.style.display='block';
-  box.innerHTML=`<b>本批小结</b> Success ${s.ok}/${s.total}（Failed ${s.failed}）· Time ${s.elapsed}s · Avg ${s.avg_per_account}s<br><span style="color:var(--fg-3)">Stages: </span>${stages}`;
+  box.innerHTML=`<b>Batch Summary</b> Success ${s.ok}/${s.total} (Failed ${s.failed}) · Time ${s.elapsed}s · Avg ${s.avg_per_account}s<br><span style="color:var(--fg-3)">Stages: </span>${stages}`;
 }
 
 async function startRegister(){
@@ -1614,7 +1614,7 @@ async function startRegister(){
     if(!r.ok){ const e=await r.json(); throw new Error(e.detail||r.status); }
     const j=await r.json();
     currentJobId=j.job_id||null;
-    const batchHtml=`<span class="badge brand">${escHtml(j.batch_label||'')}</span> <span class="badge neutral">${j.dry_run?'干跑':'真实'} · ${j.count}个 · 并发${j.concurrency}</span>`;
+    const batchHtml=`<span class="badge brand">${escHtml(j.batch_label||'')}</span> <span class="badge neutral">${j.dry_run?'Dry Run':'Real Run'} · ${j.count} accounts · concurrency ${j.concurrency}</span>`;
     $('jobBadge').innerHTML=batchHtml;
     if($('jobStats')){ $('jobStats').style.display='none'; $('jobStats').textContent=''; }
     toast('Batch started'); connectSSE(j.job_id);
@@ -1699,7 +1699,7 @@ $('detailBody').addEventListener('click',(e)=>{
 });
 $('detailCopy4').onclick=()=>{ const a=accountByEmail(DETAIL_EMAIL); if(a&&a.combo) copy(a.combo); };
 $('detailNote').onclick=()=>{ if(DETAIL_EMAIL) editNote(DETAIL_EMAIL); };
-$('detailCopy6').onclick=()=>{ const a=accountByEmail(DETAIL_EMAIL); const c=combo6(a||{}); if(c) copy(c); else toast('无六段 combo'); };
+$('detailCopy6').onclick=()=>{ const a=accountByEmail(DETAIL_EMAIL); const c=combo6(a||{}); if(c) copy(c); else toast('No 6-segment combo'); };
 $('detailVerify').onclick=()=>{ if(DETAIL_EMAIL){ verifyRow(DETAIL_EMAIL).then(()=>showAccountDetail(DETAIL_EMAIL)); } };
 $('detailDelete').onclick=()=>{ if(DETAIL_EMAIL){ delRow(DETAIL_EMAIL); $('detailModal').classList.remove('show'); } };
 function isGraphReadable(a){
@@ -1812,7 +1812,7 @@ async function verifyOneAccount(a){
   if(!rt){
     return {ok:false,email:a.email,summary:'No refresh_token, cannot test liveness',unable:true};
   }
-  // 测活默认直连：refresh 换票不需要注册代理；注册页 #proxy 多为住宅 IP，易导致 login.microsoftonline.com SSL 断连
+  // Direct connection for token refresh
   const proxy=($('verProxy')&&$('verProxy').value.trim())||'';
   return jpost('/api/verify-combo',{
     email:a.email, refresh_token:rt, combo:a.combo||'', test_imap:false, proxy
@@ -1973,7 +1973,7 @@ async function verifyCombo(){
     const j=await jpost('/api/verify-combo',body);
     setStBadge($('vGraph'),'Graph Mail',j.graph?j.graph.ok:null,j.graph?j.graph.status:null);
     setStBadge($('vRest'),'Outlook REST',j.outlook_rest?j.outlook_rest.ok:null,j.outlook_rest?j.outlook_rest.status:null);
-    if(j.imap&&j.imap.tested) setStBadge($('vImap'),'IMAP',j.imap.ok,j.imap.ok?'OK':(j.imap.stage||'✗')); else setStBadge($('vImap'),'IMAP',null,'未测');
+    if(j.imap&&j.imap.tested) setStBadge($('vImap'),'IMAP',j.imap.ok,j.imap.ok?'OK':(j.imap.stage||'✗')); else setStBadge($('vImap'),'IMAP',null,'Untested');
     $('vSummary').className='msgbox show '+(j.ok?'ok':'err'); $('vSummary').textContent=j.summary||j.message||(j.ok?'Usable':'Unavailable');
     let scope=j.granted_scope?('Granted scope: '+j.granted_scope):'';
     if(j.refresh_error) scope+=(scope?' | ':'')+'refresh error: '+j.refresh_error;
@@ -2010,7 +2010,7 @@ if($('logCopyBtn')) $('logCopyBtn').onclick=()=>void copyRegisterLogs();
 $('verifyBtn').onclick=verifyCombo;
 $('globalRefresh').onclick=()=>{ loadConfig(); loadAccounts(); loadJobs(); health(); toast('Refreshed'); };
 if($('registerPageRefresh')) $('registerPageRefresh').onclick=()=>{ loadConfig(); loadRegisterOptions(); health(); toast('Refreshed'); };
-$('imapEnableBtn').onclick=async()=>{ const j=await jpost('/api/imap-enable'); toast(j.message||'IMAP 未实现'); opsMsg('warn',j.message); };
+$('imapEnableBtn').onclick=async()=>{ const j=await jpost('/api/imap-enable'); toast(j.message||'IMAP Not Implemented'); opsMsg('warn',j.message); };
 $('keepaliveAllBtn').onclick=async()=>{ toast('Starting keepalive for all accounts'); await runKeepalive(null); };
 async function runKeepalive(emails){
   opsMsg('warn','Keepalive in progress... (refresh->access->GET /me+messages, concurrency <= 5)');
@@ -2060,7 +2060,7 @@ function proxyStatusBadge(st){
 }
 function renderProxyStats(s){
   if(!s) return;
-  const items=[['Total',s.total,'var(--fg)'],['Providers',s.providers||0,'var(--info)'],['Enabled',s.enabled,'var(--brand)'],['Usable',s.ok,'var(--success)'],['Expired',s.dead,'var(--danger)'],['Untested',s.unknown,'var(--fg-3)'],['绑定',s.bindings,'var(--info)']];
+  const items=[['Total',s.total,'var(--fg)'],['Providers',s.providers||0,'var(--info)'],['Enabled',s.enabled,'var(--brand)'],['Usable',s.ok,'var(--success)'],['Expired',s.dead,'var(--danger)'],['Untested',s.unknown,'var(--fg-3)'],['Bindings',s.bindings,'var(--info)']];
   $('proxyStatCards').innerHTML=items.map(([l,v,c])=>`<div class="card stat"><div class="lbl">${l}</div><div class="num" style="color:${c}">${v}</div></div>`).join('');
   $('navProxyCount').textContent=s.enabled||0;
   const banner=$('proxyEmptyBanner');
