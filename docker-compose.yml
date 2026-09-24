@@ -25,3 +25,9 @@ services:
       - ./accounts:/app/accounts
     restart: unless-stopped
     shm_size: "1gb"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
