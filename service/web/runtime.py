@@ -48,13 +48,13 @@ DEFAULT_TOKEN_MODE = getattr(reg_constants, "MAIL_TOKEN_MODE", "graph")
 DUAL_READY = "dual" in _scope_map
 TOKEN_MODES = _ENGINE_MODES + (["dual"] if "dual" not in _ENGINE_MODES else [])
 PRODUCT_MODES = [
-    {"id": "graph", "label": "Graph 四段式", "export": "graph", "hint": ""},
-    {"id": "graph_recovery", "label": "Graph 六段式（推荐）", "export": "recovery", "hint": ""},
+    {"id": "graph", "label": "Graph 4-Segment", "export": "graph", "hint": ""},
+    {"id": "graph_recovery", "label": "Graph 6-Segment (Recommended)", "export": "recovery", "hint": ""},
 ]
 EXECUTION_ROUTES = [
-    {"id": "protocol", "label": "纯协议（当前可用）", "ready": True, "description": "Fluent Web API + PX solver，不依赖浏览器窗口。"},
-    {"id": "roxy", "label": "Roxy 指纹浏览器", "ready": False, "description": "共享注册参数/代理/收码/token 管线；浏览器注册 adapter 尚未接入。"},
-    {"id": "bitbrowser", "label": "比特浏览器", "ready": False, "description": "共享注册参数/代理/收码/token 管线；BitBrowser adapter 尚未接入。"},
+    {"id": "protocol", "label": "Pure Protocol (Usable)", "ready": True, "description": "Fluent Web API + PX solver, standalone without browser windows."},
+    {"id": "roxy", "label": "Roxy Anti-Detect Browser", "ready": False, "description": "Shared registration parameters/proxy/mail token pipeline; browser adapter pending."},
+    {"id": "bitbrowser", "label": "BitBrowser", "ready": False, "description": "Shared registration parameters/proxy/mail token pipeline; BitBrowser adapter pending."},
 ]
 EXPORT_FORMATS = ["graph", "recovery", "dual"]
 BATCH_READY = True
@@ -90,13 +90,13 @@ CAPTCHA_PROVIDER_CATALOG: list[dict[str, str]] = [
         "id": "offcaptcha",
         "label": "OffCaptcha",
         "key_setting": "OFFCAPTCHA_API_KEY",
-        "hint": "PX invisible + press（推荐）",
+        "hint": "PX invisible + press (Recommended)",
     },
     {
         "id": "captcha_run",
         "label": "captcha.run",
         "key_setting": "CAPTCHA_RUN_API_KEY",
-        "hint": "silent → press 单 task",
+        "hint": "silent -> press single task",
     },
     {
         "id": "ezcaptcha",
@@ -112,9 +112,9 @@ CAPTCHA_PROVIDER_CATALOG: list[dict[str, str]] = [
     },
     {
         "id": "local",
-        "label": "本地 SwiftShader",
+        "label": "Local SwiftShader",
         "key_setting": "",
-        "hint": "无第三方 Key，需本机浏览器环境",
+        "hint": "No third-party key, requires local browser environment",
     },
 ]
 
@@ -1123,7 +1123,7 @@ def _register_options_payload() -> dict[str, Any]:
     proxy_options: list[dict[str, Any]] = [
         {
             "value": "auto",
-            "label": f"自动（代理池 · {pool_stats.get('enabled', 0)} 条可用）",
+            "label": f"Auto (Proxy Pool · {pool_stats.get('enabled', 0)} available)",
             "count": pool_stats.get("enabled", 0),
         }
     ]
@@ -1135,7 +1135,7 @@ def _register_options_payload() -> dict[str, Any]:
         proxy_options.append(
             {
                 "value": f"provider:{name}",
-                "label": f"{name}（{enabled} 条可用）",
+                "label": f"{name} ({enabled} available)",
                 "count": enabled,
                 "provider": name,
             }
