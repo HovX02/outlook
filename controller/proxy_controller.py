@@ -125,7 +125,7 @@ def add_proxy_pool(req: dto.ProxyPoolAddRequest) -> JSONResponse:
             if line and not line.startswith("#"):
                 templates.append(line)
     if not templates:
-        raise HTTPException(status_code=400, detail="请提供至少一条代理模板。")
+        raise HTTPException(status_code=400, detail="Please provide at least one proxy template.")
     created = rt.proxy_pool.add_proxies(
         templates,
         label=(req.label or "").strip(),
@@ -152,7 +152,7 @@ def update_proxy_pool_item(proxy_id: str, req: dto.ProxyPoolUpdateRequest) -> JS
         enabled=req.enabled,
     )
     if not ent:
-        raise HTTPException(status_code=404, detail="代理不存在。")
+        raise HTTPException(status_code=404, detail="Proxy not found.")
     return JSONResponse({"ok": True, "proxy": {**ent, "template_masked": rt.proxy_pool.mask_template(ent.get("template") or "")}})
 
 
@@ -195,10 +195,10 @@ def bind_proxy_pool(req: dto.ProxyPoolBindRequest) -> JSONResponse:
     store = rt.proxy_pool.load_store()
     ent = rt.proxy_pool.entry_by_id(store, req.proxy_id)
     if not ent:
-        raise HTTPException(status_code=404, detail="代理不存在。")
+        raise HTTPException(status_code=404, detail="Proxy not found.")
     resolved = rt.proxy_pool.resolve_template(ent.get("template") or "")
     if not resolved:
-        raise HTTPException(status_code=400, detail="代理模板无效。")
+        raise HTTPException(status_code=400, detail="Invalid proxy template.")
     rt.proxy_pool.bind_account(req.email.strip().lower(), req.proxy_id, resolved, purpose="manual")
     return JSONResponse({"ok": True, "email": req.email.strip().lower(), "resolved_masked": rt.proxy_pool.mask_template(resolved)})
 

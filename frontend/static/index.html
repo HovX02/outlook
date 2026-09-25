@@ -1715,7 +1715,7 @@ function renderBatchFilter(){
   const counts=new Map();
   ACCOUNTS.forEach(a=>{ const l=accountBatchLabel(a); if(l) counts.set(l,(counts.get(l)||0)+1); });
   const extras=[...counts.entries()].sort((x,y)=>String(y[0]).localeCompare(String(x[0]),'zh'));
-  const opts=[['all','All Batches'],['none','No Batch'],...extras.map(([l,n])=>[l, `${l}（${n}）`])];
+  const opts=[['all','All Batches'],['none','No Batch'],...extras.map(([l,n])=>[l, `${l} (${n})`])];
   sel.innerHTML=opts.map(([v,t])=>`<option value="${escHtml(v)}">${escHtml(t)}</option>`).join('');
   sel.value=opts.some(o=>o[0]===cur)?cur:'all';
   FILTER.batch=sel.value;
@@ -2150,7 +2150,7 @@ function showProxyChartTooltip(idx, clientX, clientY){
     const rate=p.rate!=null?`${p.rate}%`:'—';
     html+=`<div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:${col}"></span>${escHtml(ln.label)}</span><span class="tt-val">${rate} · ${p.success||0}/${p.total||0}</span></div>`;
   });
-  html+=`<div class="tt-vol">Daily Total Events ${day.total||0}（Success ${day.success||0} / Failed ${day.fail||0}）</div>`;
+  html+=`<div class="tt-vol">Daily Total Events ${day.total||0} (Success ${day.success||0} / Failed ${day.fail||0})</div>`;
   tip.innerHTML=html;
   tip.classList.add('show');
   const stage=$('proxyChartStage');
