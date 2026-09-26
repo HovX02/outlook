@@ -38,7 +38,7 @@ def verify_combo(req: dto.VerifyComboRequest) -> JSONResponse:
         refresh_token = refresh_token or c_rt
     if not refresh_token:
         return JSONResponse({"ok": False, "email": email, "usable": [],
-                             "message": "缺少 refresh_token（该 combo 第四段为空，无法校验）。"})
+                             "message": "Missing refresh_token (the 4th segment of combo is empty, cannot verify)."})
     try:
         res = rt._verify_one(email, refresh_token, _proxy_url(req.proxy), req.test_imap)
         try:
@@ -56,9 +56,9 @@ def verify_combo(req: dto.VerifyComboRequest) -> JSONResponse:
             "email": email,
             "usable": [],
             "summary": (
-                "测活暂不可用（网络/SSL），未改账号状态"
+                "Liveness check temporarily unavailable (Network/SSL), account status unchanged"
                 if transient
-                else f"测活异常: {exc}"[:160]
+                else f"Check error: {exc}"[:160]
             ),
             "message": str(exc)[:160],
         })
@@ -85,7 +85,7 @@ def verify_batch(req: dto.VerifyBatchRequest) -> JSONResponse:
             tasks.append((r["email"], r["refresh_token"]))
 
     if not tasks:
-        return JSONResponse({"ok": True, "results": [], "message": "无可校验账号（缺 refresh_token）。"})
+        return JSONResponse({"ok": True, "results": [], "message": "No accounts available for verification (refresh_token required)."})
 
     conc = max(1, min(int(req.concurrency or 4), 8, len(tasks)))
     results: list[dict[str, Any]] = []
@@ -102,9 +102,9 @@ def verify_batch(req: dto.VerifyBatchRequest) -> JSONResponse:
                 "email": item[0],
                 "usable": [],
                 "summary": (
-                    "测活暂不可用（网络/SSL），未改账号状态"
+                    "Liveness check temporarily unavailable (Network/SSL), account status unchanged"
                     if transient
-                    else f"测活异常: {exc}"[:160]
+                    else f"Check error: {exc}"[:160]
                 ),
                 "message": str(exc)[:160],
             }
@@ -133,10 +133,10 @@ def imap_enable() -> JSONResponse:
             "ok": False,
             "implemented": False,
             "required": False,
-            "message": "开启 IMAP 为可选项，非必需：默认走 Graph 令牌读信，不依赖 IMAP 协议开关。"
-            "主动开启（SetConsumerMailbox）需网页会话 OWA usertoken，纯 API 链路暂未产出；"
-            "且新号会返回 412（反滥用），约 10–24h 账号成熟后才可能开成。"
-            "确认某号 IMAP 状态请用『测活』勾选 IMAP。",
+            "message": "Enabling IMAP is optional, not required: Graph token is used by default for reading mail, which does not rely on the IMAP protocol switch. "
+            "Actively enabling it (SetConsumerMailbox) requires a web session OWA usertoken, which the pure API route does not currently produce; "
+            "and new accounts will return 412 (anti-abuse), taking about 10–24h to mature before it can be enabled. "
+            "To check the IMAP status of an account, please use 'Liveness Check' and select IMAP.",
         }
     )
 

@@ -141,7 +141,7 @@ def import_accounts(req: dto.ImportRequest) -> JSONResponse:
                         "created_at": now,
                         "updated_at": now,
                         "batch_id": "import",
-                        "batch_label": "导入",
+                        "batch_label": "Import",
                         "legacy_source": "import",
                     })
                 conn.commit()
@@ -160,7 +160,7 @@ def import_accounts(req: dto.ImportRequest) -> JSONResponse:
 def delete_accounts(req: dto.DeleteRequest) -> JSONResponse:
     targets = [e for e in req.emails if e]
     if not targets:
-        raise HTTPException(status_code=400, detail="未指定要删除的账号。")
+        raise HTTPException(status_code=400, detail="No accounts specified for deletion.")
     removed = rt.account_store.delete_accounts(targets)
     return JSONResponse({"ok": True, "removed": removed})
 
@@ -174,7 +174,7 @@ def set_meta(req: dto.MetaRequest) -> JSONResponse:
     if req.tags is not None:
         patch["tags"] = req.tags
     if not patch:
-        raise HTTPException(status_code=400, detail="无可更新字段。")
+        raise HTTPException(status_code=400, detail="No fields to update.")
     rt._update_meta(req.email, patch)
     return JSONResponse({"ok": True, "email": req.email, **patch})
 

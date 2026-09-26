@@ -42,28 +42,28 @@ def get_register_options() -> JSONResponse:
 @router.post("/api/register")
 def start_register(req: dto.RegisterRequest) -> JSONResponse:
     if req.count < 1:
-        raise HTTPException(status_code=400, detail="数量至少为 1。")
+        raise HTTPException(status_code=400, detail="Quantity must be at least 1.")
     route = str(req.execution_route or "protocol").strip().lower()
     route_info = next((r for r in rt.EXECUTION_ROUTES if r["id"] == route), None)
     if route_info is None:
-        raise HTTPException(status_code=400, detail=f"未知执行路线: {route}")
+        raise HTTPException(status_code=400, detail=f"Unknown execution route: {route}")
     if not route_info["ready"] and not req.dry_run:
         raise HTTPException(
             status_code=501,
-            detail=f"{route_info['label']} 已加入路线选择，但对应注册 adapter 尚未接入；为避免误走纯协议，本次未启动。",
+            detail=f"{route_info['label']} is selected, but the corresponding adapter is not yet implemented. Aborting to avoid unintended protocol fallback.",
         )
     req.execution_route = route
     if not req.dry_run and req.count > 20:
-        raise HTTPException(status_code=400, detail="真实注册单次上限 20，请分批。")
+        raise HTTPException(status_code=400, detail="Real registration limit is 20 per request. Please batch them.")
     if not req.dry_run:
         provider = rt._resolve_captcha_provider(req.model_dump())
         if not _captcha_provider_meta(provider):
-            raise HTTPException(status_code=400, detail=f"未知打码平台: {provider}")
+            raise HTTPException(status_code=400, detail=f"Unknown CAPTCHA provider: {provider}")
         if not _captcha_provider_configured(provider):
             meta = _captcha_provider_meta(provider) or {}
             raise HTTPException(
                 status_code=400,
-                detail=f"请先在「打码平台」页配置 {meta.get('label') or provider} Key。",
+                detail=f"Please configure {meta.get('label') or provider} Key in the 'Captcha Services' page first.",
             )
         req.captcha_provider = provider
         legacy_key = (req.captcha_key or "").strip()
@@ -76,14 +76,14 @@ def start_register(req: dto.RegisterRequest) -> JSONResponse:
         if use_pool:
             stats = rt.proxy_pool.pool_stats(provider=provider_filter)
             if stats.get("enabled", 0) < 1:
-                hint = "代理池无可用条目"
+                hint = "No available proxies in the pool"
                 if provider_filter:
-                    hint += f"（代理商 {provider_filter}）"
-                raise HTTPException(status_code=400, detail=f"{hint}。请先在「代理池」页添加并启用。")
+                    hint += f" (Provider: {provider_filter})"
+                raise HTTPException(status_code=400, detail=f"{hint}. Please add and enable proxies in the 'Proxy Pool' page first.")
         else:
             proxy = (req.proxy or "").strip()
             if not proxy:
-                raise HTTPException(status_code=400, detail="请选择代理池分配方式。")
+                raise HTTPException(status_code=400, detail="Please select a proxy allocation method.")
             rt.proxy_pool.ensure_templates([proxy], provider="web")
     concurrency = max(1, min(int(req.concurrency or 1), req.count))
 
@@ -95,7 +95,7 @@ def start_register(req: dto.RegisterRequest) -> JSONResponse:
             ids = ", ".join(j.batch_label or j.id[:8] for j in running_real)
             raise HTTPException(
                 status_code=409,
-                detail=f"已有注册任务进行中（{ids}），请等待完成或点击「停止任务」。",
+                detail=f"Registration tasks are already in progress ({ids}). Please wait for them to finish or click 'Stop Task'.",
             )
         job_id = uuid.uuid4().hex[:12]
         params = req.model_dump()
@@ -143,7 +143,7 @@ def list_jobs() -> JSONResponse:
 def get_job(job_id: str) -> JSONResponse:
     job = rt._jobs.get(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="任务不存在")
+        raise HTTPException(status_code=404, detail="Task not found")
     return JSONResponse(job.snapshot())
 
 
@@ -152,7 +152,7 @@ def get_job(job_id: str) -> JSONResponse:
 def job_events(job_id: str) -> StreamingResponse:
     job = rt._jobs.get(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="任务不存在")
+        raise HTTPException(status_code=404, detail="Task not found")
 
     def gen():
         yield f"data: {json.dumps({'type': 'snapshot', 'snapshot': job.snapshot()}, ensure_ascii=False)}\n\n"
@@ -181,7 +181,7 @@ def cancel_job(job_id: str) -> JSONResponse:
     with rt._jobs_lock:
         job = rt._jobs.get(job_id)
         if not job:
-            raise HTTPException(status_code=404, detail="任务不存在或已结束（仅可取消内存中的进行中任务）")
+            raise HTTPException(status_code=404, detail="Task not found or already finished (can only cancel active tasks)")
         if job.status != "running":
             return JSONResponse({"ok": True, "job_id": job_id, "status": job.status, "already": True})
         _cancel_job(job)
@@ -198,7 +198,7 @@ def cancel_running_jobs() -> JSONResponse:
                 _cancel_job(job)
                 cancelled.append(job.id)
     if not cancelled:
-        return JSONResponse({"ok": True, "cancelled": [], "message": "无进行中的任务"})
+        return JSONResponse({"ok": True, "cancelled": [], "message": "No active tasks"})
     return JSONResponse({"ok": True, "cancelled": cancelled})
 
 

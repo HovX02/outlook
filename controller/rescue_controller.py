@@ -35,7 +35,7 @@ def rescue_accounts(req: dto.RescueRequest) -> JSONResponse:
         return JSONResponse({
             "ok": False,
             "implemented": False,
-            "message": "救援脚本 scripts.rescue_login 无法导入，暂不可用。",
+            "message": "Rescue script scripts.rescue_login could not be imported. Feature unavailable.",
             "results": [],
         })
     rows = rt._load_accounts()
@@ -54,7 +54,7 @@ def rescue_accounts(req: dto.RescueRequest) -> JSONResponse:
             "total": 0,
             "ok_count": 0,
             "results": [],
-            "message": "无可救援账号（需有密码）。",
+            "message": "No accounts available for rescue (password required).",
         })
 
     use_pool, provider_filter = _parse_proxy_selection(req.model_dump())
@@ -65,13 +65,13 @@ def rescue_accounts(req: dto.RescueRequest) -> JSONResponse:
     if use_pool:
         stats = rt.proxy_pool.pool_stats(provider=provider_filter)
         if stats.get("enabled", 0) < 1 and not proxy:
-            hint = "代理池无可用条目"
+            hint = "No available proxies in the pool"
             if provider_filter:
-                hint += f"（代理商 {provider_filter}）"
+                hint += f" (Provider: {provider_filter})"
             return JSONResponse({
                 "ok": False,
                 "implemented": True,
-                "message": f"{hint}。请先在「代理池」页添加。",
+                "message": f"{hint}. Please add proxies in the 'Proxy Pool' page first.",
                 "results": [],
             })
     conc = max(1, min(int(req.concurrency or 1), 2, len(tasks)))
@@ -140,7 +140,7 @@ def keepalive(req: dto.KeepaliveRequest) -> JSONResponse:
     """对选中（或全部）账号并发跑 keepalive_one：refresh→access→GET /me+列信→轮换回写。"""
     if not rt.KEEPALIVE_READY or keepalive_one is None:
         return JSONResponse({"ok": False, "implemented": False,
-                             "message": "保活脚本 scripts.keepalive 无法导入，暂不可用。"})
+                             "message": "Keepalive script scripts.keepalive could not be imported. Feature unavailable."})
     proxy_url = _proxy_url(req.proxy)
     rows = rt._load_accounts()
     want = set(req.emails) if req.emails else None
@@ -154,7 +154,7 @@ def keepalive(req: dto.KeepaliveRequest) -> JSONResponse:
         tasks.append((r["email"], line))
     if not tasks:
         return JSONResponse({"ok": True, "implemented": True, "results": [],
-                             "message": "无可保活账号（缺 refresh_token）。"})
+                             "message": "No accounts available for keepalive (refresh_token required)."})
 
     conc = max(1, min(int(req.concurrency or 5), 5, len(tasks)))
     results: list[dict[str, Any]] = []
@@ -164,7 +164,7 @@ def keepalive(req: dto.KeepaliveRequest) -> JSONResponse:
         try:
             res = keepalive_one(line, proxy_url)
         except Exception as exc:  # noqa: BLE001
-            return {"email": email, "ok": False, "detail": f"异常:{exc}"[:120]}
+            return {"email": email, "ok": False, "detail": f"Error: {exc}"[:120]}
         res.setdefault("email", email)
         return res
 
@@ -222,7 +222,7 @@ def replenish_pool_api(req: dto.ReplenishRequest) -> JSONResponse:
         from service.account.graph_mail import probe_token
         from service.resource.recovery.proof_pool import pool_path
     except Exception as exc:  # noqa: BLE001
-        return JSONResponse({"ok": False, "implemented": False, "message": f"收码池模块不可用: {exc}"})
+        return JSONResponse({"ok": False, "implemented": False, "message": f"Proof pool module unavailable: {exc}"})
     pool = pool_path() or (rt.PROJECT_DIR.parent / "1000outlook.txt")
     pool = Path(pool)
     proxy_url = _proxy_url(req.proxy)

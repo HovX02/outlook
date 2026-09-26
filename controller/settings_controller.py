@@ -127,7 +127,7 @@ def save_settings(req: dto.SettingsRequest) -> JSONResponse:
         cleaned = value.strip()
         if key == "DEFAULT_CAPTCHA_PROVIDER" and cleaned:
             if not _captcha_provider_meta(cleaned):
-                raise HTTPException(status_code=400, detail=f"未知打码平台: {cleaned}")
+                raise HTTPException(status_code=400, detail=f"Unknown CAPTCHA provider: {cleaned}")
         rt.app_db.set_setting(key, cleaned)
         if key.endswith("_API_KEY"):
             if cleaned:
@@ -144,7 +144,7 @@ def get_captcha_provider_key(provider_id: str) -> JSONResponse:
     """本机控制台编辑弹窗回显完整 Key（仅 localhost 管理用途）。"""
     meta = _captcha_provider_meta(provider_id)
     if not meta:
-        raise HTTPException(status_code=404, detail="未知打码平台")
+        raise HTTPException(status_code=404, detail="Unknown CAPTCHA provider")
     key_setting = meta.get("key_setting") or ""
     if not key_setting:
         return JSONResponse({"ok": True, "provider": provider_id, "key": "", "configured": True})
